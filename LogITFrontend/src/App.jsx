@@ -3,6 +3,7 @@ import DeanLogin from "./pages/dean/DeanLogin.jsx";
 import DeanDashboard from "./pages/dean/DeanDashboard.jsx";
 import StudentLogin from "./pages/students/StudentLogin.jsx";
 import StudentDashboard from "./pages/students/StudentDashboard.jsx";
+import StudentRegistration from "./pages/students/StudentRegistration.jsx";
 import CompanyLogin from "./pages/company/CompanyLogin.jsx";
 import CompanyDashboard from "./pages/company/CompanyDashboard.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
@@ -15,6 +16,10 @@ function App() {
       path: "/",
       element: <StudentLogin />,
       errorElement: <div>404 Error! Page not found!</div>,
+    },
+    {
+      path: "/register/student",
+      element: <StudentRegistration />,
     },
 
     {

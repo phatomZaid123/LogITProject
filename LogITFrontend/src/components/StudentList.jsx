@@ -41,7 +41,7 @@ function StudentList() {
 
   return (
     // Outer container ensures no horizontal scroll on the body
-    <div className="w-full bg-amber-600 px-2 py-4 text-purple-800">
+    <div className="w-full bg-gray-200 rounded-2xl px-2 py-4 text-purple-800">
       <h1 className="text-2xl text-center font-serif lg:text-4xl mb-6">
         Enrolled Students
       </h1>

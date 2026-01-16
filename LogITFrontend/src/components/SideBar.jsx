@@ -85,7 +85,7 @@ function SideBar({ children, setCreateBatch, setCreateStudent }) {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex w-full bg-yellow-700 lg:pt-2">{children}</main>
+      <main className="flex-1 px-4 w-full lg:pt-2">{children}</main>
     </div>
   );
 }

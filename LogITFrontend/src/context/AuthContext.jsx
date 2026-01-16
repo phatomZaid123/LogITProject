@@ -14,7 +14,7 @@ const AuthProvider = ({ children }) => {
 
   const IsUserLoggedIn = async () => {
     try {
-      const response = await api.get("/user/me");
+      const response = await api.get("/auth/user/me");
       setUser(response.data.user);
     } catch (error) {
       console.log("No valid session found");
@@ -31,7 +31,7 @@ const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await api.post("/user/login", {
+      const response = await api.post("/auth/user/login", {
         email,
         password,
       });

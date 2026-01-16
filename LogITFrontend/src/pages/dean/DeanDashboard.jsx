@@ -3,19 +3,14 @@ import SideBar from "../../components/SideBar";
 import { CardContent } from "../../components/ui/Card";
 import { ModalForm } from "../../components/ui/Modal";
 import StudentList from "../../components/StudentList";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 function DeanDashboard() {
   const [createStudent, setCreateStudent] = useState(false);
   const [createBatch, setCreateBatch] = useState(false);
-  const [batches, setBatches] = useState([]);
 
-  // This function 'receives' the data from the child
-  const handleNewBatch = (dataFromServer) => {
-    console.log("Parent received:", dataFromServer);
-    setBatches((prev) => [...prev, dataFromServer]); // Update your UI list
-    console.log(batches);
-  };
+  useEffect(()=>{},[])
+
   return (
     <>
       <CardContent>
@@ -27,13 +22,7 @@ function DeanDashboard() {
           ></div>
         </div>
         <Header />
-        <div className="px-2 py-1 inline-block center bg-blue-100 text-blue-800 rounded-lg text-xs">
-          <h3 className="text-xl">Registration Links</h3>
 
-          <span>For Student:{batches.season_name} </span>
-          <br />
-          <span>For Company:</span>
-        </div>
         <SideBar
           setCreateBatch={setCreateBatch}
           setCreateStudent={setCreateStudent}
@@ -44,7 +33,6 @@ function DeanDashboard() {
               <ModalForm
                 onClose={() => setCreateBatch(false)}
                 title="Create Batch"
-                onSuccess={handleNewBatch}
               />
             )}
             {createStudent && (
@@ -53,6 +41,13 @@ function DeanDashboard() {
                 title="Create Student"
               />
             )}
+            <div className="px-4 py-2 mb-2 inline-block center bg-blue-100 text-blue-800 rounded-lg text-xs">
+              <h3 className="text-xl">Registration Links</h3>
+
+              <span>For Student: </span>
+              <br />
+              <span>For Company:</span>
+            </div>
           </div>
 
           <StudentList />

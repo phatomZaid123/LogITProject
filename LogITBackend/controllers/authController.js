@@ -1,6 +1,8 @@
 import User from "../models/user.js";
 import bycrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import Batch from "../models/batch.js";
+import Student from "../models/student.js";
 
 const getMe = (req, res) => {
   try {
@@ -24,6 +26,59 @@ const getMe = (req, res) => {
     });
   } catch (error) {
     console.error(error.message);
+  }
+};
+
+const registerStudent = async (req, res) => {
+  try {
+    const {
+      name,
+      email,
+      password,
+      admission_number,
+      student_course,
+      token, // This is the UUID from the URL (e.g. "550e8400-e29b...")
+    } = req.body;
+
+    console.log("Received Token:", token);
+
+    // We look for a batch where 'student_invite_code' matches the 'token' provided
+    const targetBatch = await Batch.findOne({ student_invite_code: token });
+
+    if (!targetBatch) {
+      return res.status(404).json({ message: "Invalid Registration Link" });
+    }
+
+    // --- LOGIC CHECK: IS IT ACTIVE? ---
+    if (!targetBatch.isActive) {
+      return res.status(403).json({
+        message:
+          "This registration link has expired. The batch is no longer active.",
+      });
+    }
+    console.log(admission_number);
+    // Create the Student
+    const newStudent = new Student({
+      name,
+      email,
+      password,
+      student_admission_number: admission_number,
+      student_course: student_course,
+      student_batch: targetBatch._id,
+      role: "student",
+    });
+
+    await newStudent.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Registration successful! Please login.",
+    });
+  } catch (error) {
+    console.error("Registration Error:", error);
+    res
+      .status(500)
+      .json({ message: "Registration failed", error: error.message });
   }
 };
 
@@ -87,4 +142,4 @@ const logout = (req, res) => {
 
   res.status(200).json({ message: "Logged out successfully" });
 };
-export { login, logout, getMe };
+export { login, logout, getMe, registerStudent };

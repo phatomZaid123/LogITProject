@@ -20,7 +20,6 @@ const userSchema = new mongoose.Schema(
     },
     role: { type: String },
     faculty: { type: String },
-    admission_number: { type: String }, 
     company_name: { type: String },
   },
   {

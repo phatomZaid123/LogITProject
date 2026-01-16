@@ -27,7 +27,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 // Auth Routes
-app.use("/api/user", authRoutes);
+app.use("/api/auth/users", authRoutes);
 
 //Dean Routes
 app.use("/api/dean", deanRoutes);

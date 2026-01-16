@@ -16,14 +16,14 @@ const batchSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    inviteToken: {
-      type: String,
-      unique: true,
-      sparse: true,
+
+    isActive: {
+      type: Boolean,
+      default: true,
     },
 
     // Invite codes usually live here
-    student_invite_code: { type: String },
+    student_invite_code: { type: String, unique: true, sparse: true },
     company_invite_code: { type: String },
   },
   { timestamps: true }

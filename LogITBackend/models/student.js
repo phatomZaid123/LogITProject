@@ -3,11 +3,11 @@ import mongoose from "mongoose";
 import User from "./user.js";
 
 const studentSchema = new mongoose.Schema({
-  
   student_admission_number: {
     type: Number,
     required: true,
     unique: true,
+    sparse: true,
   },
   student_course: {
     type: String,
@@ -16,7 +16,7 @@ const studentSchema = new mongoose.Schema({
   },
   student_batch: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Batch", 
+    ref: "Batch",
     required: true,
   },
   // Add company link here for when they get hired

@@ -9,41 +9,49 @@ const createBatch = async (req, res) => {
     const { batchName, batchYear } = req.body;
 
     if (!batchName && !batchYear) {
-      return res
-        .status(401)
-        .json({ message: "Please enter the correct input fields" });
-    }
-    // Check if a with the given batch name already exists
-    const existingBatch = await Batch.findOne({ batchName });
-    if (existingBatch) {
-      return res.status(400).json({
-        message: `Batch ${batchName} already exist`,
-      });
+      return res.status(401).json({ message: "Please enter correct inputs" });
     }
 
-    //Create new Batch
-    const newBatch = await Batch({
+    const existingBatch = await Batch.findOne({ session_name: batchName });
+
+    if (existingBatch) {
+      return res
+        .status(400)
+        .json({ message: `Batch ${batchName} already exists` });
+    }
+
+    // Invalidate all previous batches
+    await Batch.updateMany({}, { isActive: false });
+
+    const newInviteToken = uuidv4();
+
+    //create new student batch
+    const newBatch = new Batch({
       session_name: batchName,
       year: batchYear,
       created_by: req.user._id,
-      inviteToken: encodeURIComponent(uuidv4()),
+      isActive: true,
+      student_invite_code: newInviteToken,
+      company_invite_code: uuidv4(),
     });
 
-    //Create url invitation link
-    const baseUrl = process.env.BASE_URL;
-    newBatch.student_invite_code = `${baseUrl}/register/student?token=${newBatch.inviteToken}`;
-    newBatch.company_invite_code = `${baseUrl}/register/company?token=${uuidv4()}`;
-
-    //save to database and respond with batch data
     await newBatch.save();
 
+    // Send the FULL URL to the Frontend so the Dean can copy it
+
+    const baseUrl = process.env.BASE_URL || "http://localhost:5173";
+
     res.status(201).json({
+      success: true,
       message: `${batchName} created successfully!`,
+      // Return the full clickable link to the UI
+      inviteLink: `${baseUrl}/register/student?token=${newInviteToken}`,
     });
-    console.log(newBatch);
   } catch (error) {
     console.error("Batch Creation Error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res
+      .status(500)
+      .json({ success: false, message: "Server error", error: error.message });
   }
 };
 
@@ -86,7 +94,20 @@ const createStudent = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(studentBatch)) {
       return res.status(404).json({ message: "Invalid ID format" });
     }
-    
+
+    const activeBatch = await Batch.findOne({ isActive: true });
+
+    if (!activeBatch) {
+      return res.status(400).json({
+        message: "No active batch found. Please create a batch first.",
+      });
+    }
+    if (studentBatch != activeBatch) {
+      return res.status(400).json({
+        message: "No active batch found. Please create a batch first.",
+      });
+    }
+
     const newStudent = await Student({
       name: studentName,
       email: studentEmail,
@@ -94,6 +115,7 @@ const createStudent = async (req, res) => {
       student_admission_number: studentAdmissionNumber,
       student_course: studentCourse,
       student_batch: studentBatch,
+      role: "student",
     });
 
     await newStudent.save();
@@ -101,7 +123,7 @@ const createStudent = async (req, res) => {
     res.status(201).json({ message: `${newStudent} Successfully created` });
   } catch (error) {
     console.error("Batch Creation Error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: "Server error", error });
   }
 };
 

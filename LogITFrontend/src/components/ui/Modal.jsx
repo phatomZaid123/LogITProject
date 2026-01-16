@@ -3,11 +3,10 @@ import Button from "./Button";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
 
-const ModalForm = ({ onClose, title, onSuccess }) => {
+const ModalForm = ({ onClose, title }) => {
   const [loading, setLoading] = useState(false);
   const { api } = useAuth();
   const [batches, setBatches] = useState([]);
-  const [batchID, setBatchID] = useState("");
 
   useEffect(() => {
     // Fetch your batches from your backend API
@@ -22,7 +21,6 @@ const ModalForm = ({ onClose, title, onSuccess }) => {
     const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(formData.entries());
 
-    // Better Validation: Check data BEFORE moving to API
     if (!data.batchName?.trim() || !/^\d{4}$/.test(data.batchYear)) {
       setLoading(false);
       return alert("Check your inputs!");
@@ -30,16 +28,18 @@ const ModalForm = ({ onClose, title, onSuccess }) => {
 
     try {
       const response = await api.post("/dean/createBatch", data);
-      setLoading(true);
-      // 1. Send data back to Parent FIRST
-      if (onSuccess) {
-        onSuccess(response.data);
-        toast.success(response.message);
-      }
 
-      onClose();
+      if (response.data.success === "true" || response.status === 201) {
+        toast.success(response.data.message || "Batch created successfully!");
+        onClose(); // Only close on success
+      }
     } catch (error) {
-      console.error("Submission failed", error);
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "An unexpected error occurred";
+      console.error("Submission failed:", error);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
