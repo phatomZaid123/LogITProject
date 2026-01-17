@@ -14,7 +14,7 @@ const AuthProvider = ({ children }) => {
 
   const IsUserLoggedIn = async () => {
     try {
-      const response = await api.get("/auth/user/me");
+      const response = await api.get("/auth/users/me");
       setUser(response.data.user);
     } catch (error) {
       console.log("No valid session found");
@@ -31,7 +31,7 @@ const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await api.post("/auth/user/login", {
+      const response = await api.post("/auth/users/login", {
         email,
         password,
       });
@@ -47,7 +47,7 @@ const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await api.post("/user/logout");
+      await api.post("/auth/users/logout");
       setUser(null);
       window.location.href = "/DeanLogin";
     } catch (error) {

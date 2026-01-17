@@ -45,7 +45,6 @@ const StudentRegistration = () => {
     setError("");
 
     try {
-      // payload matches your backend: const { name, email, password, admission_number, student_course, token } = req.body;
       const payload = {
         name: formData.name,
         email: formData.email,

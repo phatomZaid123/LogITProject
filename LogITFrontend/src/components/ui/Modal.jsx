@@ -1,22 +1,55 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Button from "./Button";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
 
-const ModalForm = ({ onClose, title }) => {
+const ModalForm = ({ onClose, title, batches, onBatchCreated }) => {
   const [loading, setLoading] = useState(false);
   const { api } = useAuth();
-  const [batches, setBatches] = useState([]);
 
-  useEffect(() => {
-    // Fetch your batches from your backend API
-    api.get("/dean/getAllBatch").then((res) => setBatches(res.data));
-  }, []);
+  //Dean Creating the batch for student
+  const submitStudentDetails = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const data = Object.fromEntries(formData.entries());
+
+    if (
+      !data.studentName?.trim() ||
+      !data.studentEmail?.trim() ||
+      !data.studentPassword?.trim() ||
+      !data.studentAdmissionNumber?.trim() ||
+      !data.studentCourse?.trim() ||
+      !data.studentBatch?.trim()
+    ) {
+      setLoading(false);
+      return alert("Check your inputs!");
+    }
+
+    try {
+      const response = await api.post("/dean/createStudent", data);
+
+      if (response.status === 201) {
+        toast.success("Student registered successfully!");
+        onClose();
+      }
+    } catch (error) {
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "An unexpected error occurred";
+      console.error("Submission failed:", error);
+      toast.error(`Registration failed: ${errorMessage}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   //Dean Creating the batch for student
   const submitBatchDetails = async (e) => {
     e.preventDefault();
-    setLoading(true); // Disable buttons to prevent double-submit
+    setLoading(true);
 
     const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(formData.entries());
@@ -29,9 +62,17 @@ const ModalForm = ({ onClose, title }) => {
     try {
       const response = await api.post("/dean/createBatch", data);
 
-      if (response.data.success === "true" || response.status === 201) {
-        toast.success(response.data.message || "Batch created successfully!");
-        onClose(); // Only close on success
+      if (response.status === 201) {
+        // Pass both links and batch name to parent
+        if (onBatchCreated) {
+          onBatchCreated({
+            batchName: data.batchName,
+            studentLink: response.data.inviteLink,
+            companyLink: response.data.companyInviteLink,
+          });
+          console.log(response.data);
+        }
+        onClose();
       }
     } catch (error) {
       const errorMessage =
@@ -39,36 +80,6 @@ const ModalForm = ({ onClose, title }) => {
         error.message ||
         "An unexpected error occurred";
       console.error("Submission failed:", error);
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  //Dean creating student manually
-  const submitStudentDetails = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    const formData = new FormData(e.currentTarget);
-    const data = Object.fromEntries(formData.entries());
-    if (
-      !data.studentName?.trim() ||
-      !data.studentEmail ||
-      !data.studentPassword ||
-      !data.studentAdmissionNumber?.trim() ||
-      !data.studentCourse?.trim() ||
-      !data.studentBatch
-    ) {
-      return alert("Please review the inputs and make sure they are correct!");
-    }
-
-    try {
-      const response = await api.post("/dean/createStudent", data);
-      if (onSuccess) onSuccess(response.data);
-
-      onClose();
-    } catch (error) {
-      console.error("Submission failed", error);
     } finally {
       setLoading(false);
     }
@@ -127,7 +138,7 @@ const ModalForm = ({ onClose, title }) => {
             <select name="studentBatch" required>
               <option value="">Select a Batch</option>
               {batches.map((batch) => (
-                <option key={batch._id} value={batch._id}>
+                <option key={batch._id} value={batch.session_name}>
                   {batch.session_name}{" "}
                   {/* User sees name, but value is the ID */}
                 </option>

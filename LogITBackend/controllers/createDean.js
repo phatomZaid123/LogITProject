@@ -25,4 +25,4 @@ const createDean = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-export default createDean;
+export { createDean };

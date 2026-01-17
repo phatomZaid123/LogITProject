@@ -4,6 +4,7 @@ import Student from "../models/student.js";
 import mongoose from "mongoose";
 
 //creating of new batch by dean
+
 const createBatch = async (req, res) => {
   try {
     const { batchName, batchYear } = req.body;
@@ -23,29 +24,26 @@ const createBatch = async (req, res) => {
     // Invalidate all previous batches
     await Batch.updateMany({}, { isActive: false });
 
-    const newInviteToken = uuidv4();
+    const studentInviteToken = uuidv4();
+    const companyInviteToken = uuidv4();
 
-    //create new student batch
     const newBatch = new Batch({
       session_name: batchName,
       year: batchYear,
       created_by: req.user._id,
       isActive: true,
-      student_invite_code: newInviteToken,
-      company_invite_code: uuidv4(),
+      student_invite_code: studentInviteToken,
+      company_invite_code: companyInviteToken,
     });
 
     await newBatch.save();
 
-    // Send the FULL URL to the Frontend so the Dean can copy it
-
     const baseUrl = process.env.BASE_URL || "http://localhost:5173";
 
     res.status(201).json({
-      success: true,
-      message: `${batchName} created successfully!`,
-      // Return the full clickable link to the UI
-      inviteLink: `${baseUrl}/register/student?token=${newInviteToken}`,
+      message: `Batch ${batchName} created successfully`,
+      inviteLink: `${baseUrl}/register/student?token=${studentInviteToken}`,
+      companyInviteLink: `${baseUrl}/register/company?token=${companyInviteToken}`,
     });
   } catch (error) {
     console.error("Batch Creation Error:", error);
@@ -57,15 +55,37 @@ const createBatch = async (req, res) => {
 
 const getAllBatch = async (req, res) => {
   try {
-    // find({}) retrieves every document in the "batches" collection
-    const batches = await Batch.find({}).select("session_name");
+    const batches = await Batch.find({}).select(
+      "session_name isActive student_invite_code company_invite_code _id",
+    );
 
-    // Return the array of batches to the frontend
-    res.status(200).json(batches);
+    const baseUrl = process.env.BASE_URL || "http://localhost:5173";
+
+    // Add full invite links to response
+    const batchesWithLinks = batches.map((batch) => ({
+      ...batch._doc,
+      student_invite_link: `${baseUrl}/register/student?token=${batch.student_invite_code}`,
+      company_invite_link: `${baseUrl}/register/company?token=${batch.company_invite_code}`,
+    }));
+
+    res.status(200).json(batchesWithLinks);
   } catch (error) {
     res
       .status(500)
       .json({ message: "Error fetching batches", error: error.message });
+  }
+};
+
+const filterStudentsByBatch = async (req, res) => {
+  const { batchId } = req.params;
+
+  try {
+    const students = await Student.find({ student_batch: batchId }).select(
+      "-password -createdAt -updatedAt -__v -role",
+    );
+    res.status(200).json(students);
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error });
   }
 };
 
@@ -90,19 +110,21 @@ const createStudent = async (req, res) => {
     ) {
       return res.status(401).json({ message: "Please review inputs" });
     }
+    console.log(studentBatch);
 
     if (!mongoose.Types.ObjectId.isValid(studentBatch)) {
       return res.status(404).json({ message: "Invalid ID format" });
     }
 
     const activeBatch = await Batch.findOne({ isActive: true });
+    console.log(activeBatch);
 
     if (!activeBatch) {
       return res.status(400).json({
         message: "No active batch found. Please create a batch first.",
       });
     }
-    if (studentBatch != activeBatch) {
+    if (studentBatch != activeBatch._id) {
       return res.status(400).json({
         message: "No active batch found. Please create a batch first.",
       });
@@ -127,4 +149,38 @@ const createStudent = async (req, res) => {
   }
 };
 
-export { createBatch, createStudent, getAllBatch };
+const getAllStudents = async (req, res) => {
+  try {
+    const students = await Student.find({}).select(
+      "-password -createdAt -updatedAt -__v -role",
+    );
+    const batches = await Batch.find({}).select("session_name");
+
+    // Map batch IDs to session names for easy lookup
+    const batchMap = {};
+    batches.forEach((batch) => {
+      batchMap[batch._id] = batch.session_name;
+    });
+
+    // Keep batch ID for filtering and add batch name for display
+    const studentsWithBatchInfo = students.map((student) => {
+      return {
+        ...student._doc,
+        student_batch_id: student.student_batch, // Keep ID for filtering
+        student_batch_name: batchMap[student.student_batch], // Add name for display
+      };
+    });
+
+    res.status(200).json(studentsWithBatchInfo);
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error });
+  }
+};
+
+export {
+  createBatch,
+  createStudent,
+  getAllBatch,
+  getAllStudents,
+  filterStudentsByBatch,
+};

@@ -1,29 +1,43 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Menu, X, LogOut, Shield } from "lucide-react";
 import Button from "./ui/Button";
 import { useAuth } from "../context/AuthContext";
 
-// Add { children } prop here
-function SideBar({ children, setCreateBatch, setCreateStudent }) {
+function SideBar({
+  children,
+  setCreateBatch,
+  setCreateStudent,
+  batches,
+  selectedBatchId,
+  setSelectedBatchId,
+  selectedCourse,
+  setSelectedCourse,
+}) {
   const [openSidebar, setOpenSidebar] = useState(false);
-  const [selectedCar, setSelectedCar] = useState("volvo");
-  const { logout } = useAuth();
+  const { logout, api } = useAuth();
+  const [courses, setCourses] = useState([]);
 
-  const options = [
-    { value: "ford", label: "Ford" },
-    { value: "volvo", label: "Volvo" },
-    { value: "fiat", label: "Fiat" },
-  ];
+  // List of available courses
+  useEffect(() => {
+    //Fetch student courses from backend
+    const fetchStudentCourses = async () => {
+      try {
+        const response = await api.get("/dean/students");
+        const students = response.data;
+        const coursesSet = new Set(
+          students.map((student) => student.student_course)
+        );
+        setCourses(Array.from(coursesSet));
+      } catch (error) {
+        console.error("Error fetching student courses:", error);
+      }
+    };
 
-  // Default value
-
-  const handleChange = (event) => {
-    setSelectedCar(event.target.value);
-  };
+    fetchStudentCourses();
+  }, []);
 
   return (
     <div className="flex min-h-screen">
-      {/* Mobile Toggle Button */}
       <button
         className="fixed top-4 left-1 z-50 p-1 bg-purple-600 text-white rounded-md lg:hidden"
         onClick={() => setOpenSidebar(!openSidebar)}
@@ -31,7 +45,6 @@ function SideBar({ children, setCreateBatch, setCreateStudent }) {
         {openSidebar ? <X size={24} /> : <Menu size={24} />}
       </button>
 
-      {/* Backdrop for Mobile */}
       {openSidebar && (
         <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -39,7 +52,6 @@ function SideBar({ children, setCreateBatch, setCreateStudent }) {
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={`rounded-2xl fixed top-0 left-0 z-40 h-screen w-60 bg-purple-700 text-white transition-transform duration-300 ease-in-out
           ${openSidebar ? "translate-x-0" : "-translate-x-full"} 
@@ -51,16 +63,35 @@ function SideBar({ children, setCreateBatch, setCreateStudent }) {
             <Shield size={60} className="my-2" />
             <div className="text-2xl text-center">CSC</div>
           </div>
-          <select value={selectedCar} onChange={handleChange}>
-            {options.map((option) => (
-              // Use a unique key for each option when mapping
-              <option key={option.value} value={option.value}>
-                {option.label}
+
+          {/* Batch Filter Dropdown */}
+          <select
+            className="mb-4 p-2 border border-white rounded-lg text-white"
+            value={selectedBatchId}
+            onChange={(e) => setSelectedBatchId(e.target.value)}
+          >
+            <option value="">All Batches</option>
+            {batches.map((batch) => (
+              <option key={batch._id} value={batch._id}>
+                {batch.session_name}
               </option>
             ))}
           </select>
 
-          {/* Buttons to trigger the forms */}
+          {/* Course Filter Dropdown */}
+          <select
+            className="mb-4 p-2 border border-white rounded-lg text-white"
+            value={selectedCourse}
+            onChange={(e) => setSelectedCourse(e.target.value)}
+          >
+            <option value="">All Courses</option>
+            {courses.map((course) => (
+              <option key={course} value={course}>
+                {course}
+              </option>
+            ))}
+          </select>
+
           <Button
             variant="outline"
             className="mt-2 text-white"
@@ -84,7 +115,6 @@ function SideBar({ children, setCreateBatch, setCreateStudent }) {
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <main className="flex-1 px-4 w-full lg:pt-2">{children}</main>
     </div>
   );

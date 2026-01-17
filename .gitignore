@@ -25,6 +25,8 @@ LogITBackend/node_modules
 LogITBackend/dist
 LogITBackend/dist-ssr
 LogITBackend/.env
+LogITBackend/.env.local
+LogITBackend/controllers/CreateDean.js
 
 
 # Build outputs
