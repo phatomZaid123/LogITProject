@@ -18,7 +18,7 @@ const AuthProvider = ({ children }) => {
       setUser(response.data.user);
     } catch (error) {
       console.log("No valid session found");
-      setUser(null);
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -48,8 +48,14 @@ const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       await api.post("/auth/users/logout");
+      if (user?.role === "dean") {
+        window.location.href = "/dean/login";
+      } else if (user?.role === "student") {
+        window.location.href = "/student/login";
+      } else if (user?.role === "company") {
+        window.location.href = "/company/login";
+      } 
       setUser(null);
-      window.location.href = "/DeanLogin";
     } catch (error) {
       console.error("Logout failed", error);
     }

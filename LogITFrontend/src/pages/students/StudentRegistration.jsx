@@ -57,7 +57,7 @@ const StudentRegistration = () => {
       await api.post("/auth/users/students/register", payload);
 
       alert("Registration Successful! You can now log in.");
-      navigate("/");
+      navigate("/student/login");
     } catch (error) {
       setError(
         error.response?.data?.message ||

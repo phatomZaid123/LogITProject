@@ -20,11 +20,12 @@ const studentSchema = new mongoose.Schema({
     required: true,
   },
   // Add company link here for when they get hired
-  company: {
+  assigned_company: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Company",
+    ref: "company",
     default: null,
   },
+
 });
 
 const Student = User.discriminator("student", studentSchema);

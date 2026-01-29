@@ -19,7 +19,7 @@ const Login = () => {
 
     console.log(result);
     if (result.success) {
-      navigate("/DeanDashboard");
+      navigate("/dean/dashboard");
     } else {
       setError(result.error || "Invalid Credentials");
     }

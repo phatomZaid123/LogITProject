@@ -70,15 +70,12 @@ const ModalForm = ({ onClose, title, batches, onBatchCreated }) => {
             studentLink: response.data.inviteLink,
             companyLink: response.data.companyInviteLink,
           });
+          toast.success(`Batch ${data.batchName} created successfully!`);
           console.log(response.data);
         }
         onClose();
       }
     } catch (error) {
-      const errorMessage =
-        error.response?.data?.message ||
-        error.message ||
-        "An unexpected error occurred";
       console.error("Submission failed:", error);
     } finally {
       setLoading(false);

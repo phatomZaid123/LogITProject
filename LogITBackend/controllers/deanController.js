@@ -1,31 +1,36 @@
 import Batch from "../models/batch.js";
-import { v4 as uuidv4 } from "uuid";
+import QRCode from "qrcode";
 import Student from "../models/student.js";
 import mongoose from "mongoose";
+import Company from "../models/company.js";
+
+// Helper to generate the full object
+const generateInviteData = async (token, type) => {
+  const baseUrl = process.env.BASE_URL || "http://localhost:5173";
+  const link = `${baseUrl}/register/${type}?token=${token}`;
+  const qrCode = await QRCode.toDataURL(link);
+  return { link, qrCode };
+};
 
 //creating of new batch by dean
-
 const createBatch = async (req, res) => {
   try {
     const { batchName, batchYear } = req.body;
-
-    if (!batchName && !batchYear) {
+    if (!batchName || !batchYear) {
       return res.status(401).json({ message: "Please enter correct inputs" });
     }
 
     const existingBatch = await Batch.findOne({ session_name: batchName });
-
     if (existingBatch) {
       return res
         .status(400)
         .json({ message: `Batch ${batchName} already exists` });
     }
 
-    // Invalidate all previous batches
     await Batch.updateMany({}, { isActive: false });
 
-    const studentInviteToken = uuidv4();
-    const companyInviteToken = uuidv4();
+    const studentInviteToken = crypto.randomUUID(); // Modern 2026 approach for tokens
+    const companyInviteToken = crypto.randomUUID();
 
     const newBatch = new Batch({
       session_name: batchName,
@@ -38,15 +43,22 @@ const createBatch = async (req, res) => {
 
     await newBatch.save();
 
-    const baseUrl = process.env.BASE_URL || "http://localhost:5173";
+    // Generate QR codes for the response
+    const studentInvite = await generateInviteData(
+      studentInviteToken,
+      "student",
+    );
+    const companyInvite = await generateInviteData(
+      companyInviteToken,
+      "company",
+    );
 
     res.status(201).json({
       message: `Batch ${batchName} created successfully`,
-      inviteLink: `${baseUrl}/register/student?token=${studentInviteToken}`,
-      companyInviteLink: `${baseUrl}/register/company?token=${companyInviteToken}`,
+      studentInvite,
+      companyInvite,
     });
   } catch (error) {
-    console.error("Batch Creation Error:", error);
     res
       .status(500)
       .json({ success: false, message: "Server error", error: error.message });
@@ -55,20 +67,28 @@ const createBatch = async (req, res) => {
 
 const getAllBatch = async (req, res) => {
   try {
-    const batches = await Batch.find({}).select(
-      "session_name isActive student_invite_code company_invite_code _id",
+    const batches = await Batch.find({}).select("-__v");
+
+    const batchesWithQRs = await Promise.all(
+      batches.map(async (batch) => {
+        const studentData = await generateInviteData(
+          batch.student_invite_code,
+          "student",
+        );
+        const companyData = await generateInviteData(
+          batch.company_invite_code,
+          "company",
+        );
+
+        return {
+          ...batch._doc,
+          student_invite: studentData,
+          company_invite: companyData,
+        };
+      }),
     );
 
-    const baseUrl = process.env.BASE_URL || "http://localhost:5173";
-
-    // Add full invite links to response
-    const batchesWithLinks = batches.map((batch) => ({
-      ...batch._doc,
-      student_invite_link: `${baseUrl}/register/student?token=${batch.student_invite_code}`,
-      company_invite_link: `${baseUrl}/register/company?token=${batch.company_invite_code}`,
-    }));
-
-    res.status(200).json(batchesWithLinks);
+    res.status(200).json(batchesWithQRs);
   } catch (error) {
     res
       .status(500)
@@ -151,29 +171,77 @@ const createStudent = async (req, res) => {
 
 const getAllStudents = async (req, res) => {
   try {
-    const students = await Student.find({}).select(
-      "-password -createdAt -updatedAt -__v -role",
-    );
-    const batches = await Batch.find({}).select("session_name");
+    // Fetch Students with populated names
+    const students = await Student.find({})
+      .select("-password -createdAt -updatedAt -__v -role -company")
+      .populate("assigned_company", "name")
+      .populate("student_batch", "session_name")
+      .lean();
 
-    // Map batch IDs to session names for easy lookup
-    const batchMap = {};
-    batches.forEach((batch) => {
-      batchMap[batch._id] = batch.session_name;
-    });
+    // Flatten the student response to use string names
+    const flattenedStudents = students.map((student) => {
+      const companyName = student.assigned_company?.name || "Unassigned";
+      const companyId = student.assigned_company?._id || null;
+      const batchName = student.student_batch?.session_name || "N/A";
+      const batchId = student.student_batch?._id || null;
 
-    // Keep batch ID for filtering and add batch name for display
-    const studentsWithBatchInfo = students.map((student) => {
       return {
-        ...student._doc,
-        student_batch_id: student.student_batch, // Keep ID for filtering
-        student_batch_name: batchMap[student.student_batch], // Add name for display
+        ...student,
+
+        assigned_company: companyName,
+        assigned_company_id: companyId,
+        student_batch: batchName,
+        student_batch_id: batchId,
+        assigned_company_name: companyName,
+        student_batch_name: batchName,
       };
     });
 
-    res.status(200).json(studentsWithBatchInfo);
+    res.status(200).json({
+      students: flattenedStudents,
+    });
   } catch (error) {
-    res.status(500).json({ message: "Server Error", error });
+    console.error("Fetch Error:", error);
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
+
+const getAllCompany = async (req, res) => {
+  try {
+    const companies = await Company.find({})
+      .select("-password -createdAt -updatedAt -__v -role ")
+      .lean();
+
+    res.status(200).json({
+      company: companies,
+    });
+  } catch (error) {
+    console.error("Fetch Error:", error);
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
+const getStudentById = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ message: "Invalid student ID format" });
+    }
+
+    const student = await Student.findById(studentId)
+      .select("-password -createdAt -updatedAt -__v -role")
+      .populate("student_batch", "session_name");
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    res.status(200).json(student);
+  } catch (error) {
+    console.error("Get Student Error:", error);
+    res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
 
@@ -182,5 +250,7 @@ export {
   createStudent,
   getAllBatch,
   getAllStudents,
+  getAllCompany,
   filterStudentsByBatch,
+  getStudentById,
 };

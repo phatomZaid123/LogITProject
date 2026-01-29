@@ -3,6 +3,7 @@ import bycrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import Batch from "../models/batch.js";
 import Student from "../models/student.js";
+import Company from "../models/company.js";
 
 const getMe = (req, res) => {
   try {
@@ -82,6 +83,51 @@ const registerStudent = async (req, res) => {
   }
 };
 
+const registerCompany = async (req, res) => {
+  try {
+    const {
+      companyName,
+      companyEmail,
+      companyPassword,
+      companyAddress,
+      companyContactPersonName,
+      companyContactPersonEmail,
+      jobTittle,
+    } = req.body;
+
+    if (
+      !companyName ||
+      !companyEmail ||
+      !companyPassword ||
+      !companyAddress ||
+      !companyContactPersonName ||
+      !companyContactPersonEmail ||
+      !jobTittle
+    ) {
+      return res.status(401).json({ message: "Please review inputs" });
+    }
+
+    const newCompany = new Company({
+      name: companyName,
+      email: companyEmail,
+      password: companyPassword,
+      company_address: companyAddress,
+      contact_person: {
+        name: companyContactPersonName,
+        email: companyContactPersonEmail,
+      },
+      job_title: jobTittle,
+      role: "company",
+    });
+
+    await newCompany.save();
+
+    res.status(201).json({ message: `${newCompany} Successfully created` });
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error });
+  }
+};
+
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -107,7 +153,7 @@ const login = async (req, res) => {
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      { expiresIn: "1d" },
     );
 
     // SEND TOKEN AS A COOKIE
@@ -142,4 +188,4 @@ const logout = (req, res) => {
 
   res.status(200).json({ message: "Logged out successfully" });
 };
-export { login, logout, getMe, registerStudent };
+export { login, logout, getMe, registerStudent, registerCompany };

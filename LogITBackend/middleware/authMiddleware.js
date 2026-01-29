@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user.js";
 
-// middleware/authMiddleware.js
+
 
 const protect = async (req, res, next) => {
   //read and decode cookie

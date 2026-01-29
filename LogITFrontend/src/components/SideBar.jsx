@@ -1,121 +1,194 @@
-import { useEffect, useState } from "react";
-import { Menu, X, LogOut, Shield } from "lucide-react";
-import Button from "./ui/Button";
+import { useState } from "react";
+
+import {
+  Menu,
+  X,
+  Home,
+  FileText,
+  Users,
+  BarChart3,
+  Settings,
+  LogOut,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Building2,
+} from "lucide-react";
+
+import LogITLogo from "../assets/LogITLogo.jpeg";
+
+import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-function SideBar({
-  children,
-  setCreateBatch,
-  setCreateStudent,
-  batches,
-  selectedBatchId,
-  setSelectedBatchId,
-  selectedCourse,
-  setSelectedCourse,
-}) {
-  const [openSidebar, setOpenSidebar] = useState(false);
-  const { logout, api } = useAuth();
-  const [courses, setCourses] = useState([]);
+function SideBar({ children }) {
+  const [open, setOpen] = useState(false);
+  const { logout, user } = useAuth();
 
-  // List of available courses
-  useEffect(() => {
-    //Fetch student courses from backend
-    const fetchStudentCourses = async () => {
-      try {
-        const response = await api.get("/dean/students");
-        const students = response.data;
-        const coursesSet = new Set(
-          students.map((student) => student.student_course)
-        );
-        setCourses(Array.from(coursesSet));
-      } catch (error) {
-        console.error("Error fetching student courses:", error);
-      }
-    };
+  /* ===== MENU CONFIG ===== */
+  const menuItems = {
+    student: [
+      { label: "Dashboard", path: "/student/dashboard", icon: Home },
+      {
+        label: "My Logbook",
+        path: "/student/dashboard/logbook",
+        icon: FileText,
+      },
+      { label: "Timesheet", path: "/student/dashboard/timesheet", icon: Clock },
+      { label: "Tasks", path: "/student/dashboard/tasks", icon: CheckCircle2 },
+      { label: "Reports", path: "/student/dashboard/reports", icon: BarChart3 },
+    ],
 
-    fetchStudentCourses();
-  }, []);
+    dean: [
+      { label: "Dashboard", path: "/dean/dashboard", icon: Home },
+      { label: "Students", path: "/dean/dashboard/students", icon: Users },
+      {
+        label: "Companies",
+        path: "/dean/dashboard/companies",
+        icon: Building2,
+      },
+      { label: "Reports", path: "/dean/dashboard/reports", icon: BarChart3 },
+      {
+        label: "Complaints",
+        path: "/dean/dashboard/complaints",
+        icon: AlertCircle,
+      },
+      { label: "Settings", path: "/dean/dashboard/settings", icon: Settings },
+    ],
+
+    company: [
+      { label: "Dashboard", path: "/company/dashboard", icon: Home },
+      { label: "Interns", path: "/company/dashboard/interns", icon: Users },
+      { label: "Tasks", path: "/company/dashboard/tasks", icon: CheckCircle2 },
+      { label: "Reports", path: "/company/dashboard/reports", icon: BarChart3 },
+      {
+        label: "Settings",
+        path: "/company/dashboard/settings",
+        icon: Settings,
+      },
+    ],
+  };
+
+  const currentMenu = menuItems[user?.role] || [];
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-gray-100">
+      {/* ===== MOBILE BUTTON ===== */}
       <button
-        className="fixed top-4 left-1 z-50 p-1 bg-purple-600 text-white rounded-md lg:hidden"
-        onClick={() => setOpenSidebar(!openSidebar)}
+        onClick={() => setOpen(!open)}
+        className="
+          fixed top-4 left-4 z-50 lg:hidden
+          p-2 rounded-md bg-purple-600 text-white
+          shadow-lg
+        "
       >
-        {openSidebar ? <X size={24} /> : <Menu size={24} />}
+        {open ? <X /> : <Menu />}
       </button>
 
-      {openSidebar && (
+      {/* ===== MOBILE OVERLAY ===== */}
+      {open && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setOpenSidebar(false)}
+          onClick={() => setOpen(false)}
+          className="fixed inset-0 bg-black/40 z-40 lg:hidden"
         />
       )}
 
+      {/* ===== SIDEBAR ===== */}
       <aside
-        className={`rounded-2xl fixed top-0 left-0 z-40 h-screen w-60 bg-purple-700 text-white transition-transform duration-300 ease-in-out
-          ${openSidebar ? "translate-x-0" : "-translate-x-full"} 
-          lg:translate-x-0 lg:sticky`}
+        className={`
+          fixed lg:relative z-50
+          top-0 left-0 h-screen w-64
+          bg-slate-900 text-slate-100
+          transition-transform duration-300
+
+          ${open ? "translate-x-0" : "-translate-x-full"}
+          lg:translate-x-0
+        `}
       >
-        <div className="flex flex-col h-full p-3 ">
-          <div className="bg-purple-900 font-bold flex flex-col items-center justify-center py-4 rounded-3xl mb-6">
-            <div className="text-center text-lg">Dean Dashboard</div>
-            <Shield size={60} className="my-2" />
-            <div className="text-2xl text-center">CSC</div>
+        <div className="flex flex-col h-full">
+          {/* ===== LOGO ===== */}
+          <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-700">
+            <img
+              src={LogITLogo}
+              alt="LogIT"
+              className="w-10 h-10 rounded-full"
+            />
+
+            <div>
+              <h1 className="font-bold text-lg">LogIT</h1>
+              <p className="text-xs text-slate-400">OJT System</p>
+            </div>
           </div>
 
-          {/* Batch Filter Dropdown */}
-          <select
-            className="mb-4 p-2 border border-white rounded-lg text-white"
-            value={selectedBatchId}
-            onChange={(e) => setSelectedBatchId(e.target.value)}
-          >
-            <option value="">All Batches</option>
-            {batches.map((batch) => (
-              <option key={batch._id} value={batch._id}>
-                {batch.session_name}
-              </option>
-            ))}
-          </select>
+          {/* ===== USER CARD ===== */}
+          <div className="px-6 py-4 border-b border-slate-700">
+            <p className="text-xs text-slate-400">Logged in as</p>
 
-          {/* Course Filter Dropdown */}
-          <select
-            className="mb-4 p-2 border border-white rounded-lg text-white"
-            value={selectedCourse}
-            onChange={(e) => setSelectedCourse(e.target.value)}
-          >
-            <option value="">All Courses</option>
-            {courses.map((course) => (
-              <option key={course} value={course}>
-                {course}
-              </option>
-            ))}
-          </select>
+            <p className="font-semibold mt-1 capitalize">
+              {user?.name || "User"}
+            </p>
 
-          <Button
-            variant="outline"
-            className="mt-2 text-white"
-            size="sm"
-            onClick={() => setCreateBatch(true)}
-          >
-            Create Batch
-          </Button>
-          <Button
-            variant="outline"
-            className="mt-2 text-white"
-            size="sm"
-            onClick={() => setCreateStudent(true)}
-          >
-            Create Student
-          </Button>
-          <Button onClick={logout} variant="danger" className="mt-40">
-            <LogOut size={25} />
-            <span className="ml-2"> Logout </span>
-          </Button>
+            <p className="text-xs text-purple-400 capitalize mt-1">
+              {user?.role}
+            </p>
+          </div>
+
+          {/* ===== MENU ===== */}
+          <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
+            <p className="text-xs text-slate-400 px-3 mb-2">MAIN MENU</p>
+
+            {currentMenu.map((item, i) => {
+              const Icon = item.icon;
+
+              return (
+                <NavLink
+                  key={i}
+                  to={item.path}
+                  end
+                  onClick={() => setOpen(false)}
+                  className={({ isActive }) => `
+                    group flex items-center gap-3
+                    px-4 py-2.5 rounded-lg text-sm
+                    transition-all
+
+                    ${
+                      isActive
+                        ? "bg-purple-600 text-white shadow"
+                        : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                    }
+                  `}
+                >
+                  <Icon size={18} />
+
+                  <span>{item.label}</span>
+                </NavLink>
+              );
+            })}
+          </nav>
+
+          {/* ===== LOGOUT ===== */}
+          <div className="px-3 py-4 border-t border-slate-700">
+            <button
+              onClick={() => {
+                logout();
+                setOpen(false);
+              }}
+              className="
+                w-full flex items-center gap-3
+                px-4 py-2.5 rounded-lg
+                bg-red-600 hover:bg-red-700
+                text-white text-sm font-medium
+                transition
+              "
+            >
+              <LogOut size={18} />
+              Logout
+            </button>
+          </div>
         </div>
       </aside>
 
-      <main className="flex-1 px-4 w-full lg:pt-2">{children}</main>
+      {/* ===== MAIN CONTENT ===== */}
+      <main className="flex-1 overflow-x-hidden">{children}</main>
     </div>
   );
 }

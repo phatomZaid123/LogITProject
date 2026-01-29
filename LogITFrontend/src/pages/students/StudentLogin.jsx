@@ -22,7 +22,7 @@ const Login = () => {
     console.log(result);
     if (result.success) {
       setLoading(false);
-      navigate("/StudentDashboard");
+      navigate("/student/dashboard");
     } else {
       setError(result.error || "Invalid Credentials");
     }

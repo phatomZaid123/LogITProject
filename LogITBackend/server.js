@@ -4,9 +4,11 @@ import dotenv from "dotenv";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
 import connectDB from "./config/configDB.js";
-import deanRoutes from "./routes/deanRoutes..js";
+import deanRoutes from "./routes/deanRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
-
+import Company from "./models/company.js";
+import Student from "./models/student.js";
+import companyRoutes from "./routes/companyRoutes.js";
 // Load environment variables
 dotenv.config();
 
@@ -32,6 +34,8 @@ app.use("/api/auth/users", authRoutes);
 //Dean Routes
 app.use("/api/dean", deanRoutes);
 
+//Company Routes
+app.use("/api/company", companyRoutes);
 // Connect to the database then Start server
 connectDB().then(() => {
   app.listen(PORT, () => {
