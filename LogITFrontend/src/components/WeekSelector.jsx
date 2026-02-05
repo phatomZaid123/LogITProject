@@ -28,42 +28,64 @@ const WeekSelector = ({ weeks, currentWeekIndex, onChange, onWeekChange }) => {
             <h3 className="text-sm font-bold text-gray-800">
               Week {currentWeek.number}
             </h3>
-            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${statusStyle}`}>
+            <span
+              className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${statusStyle}`}
+            >
               {statusLabel}
             </span>
           </div>
           <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wider">
-            {currentWeek.start.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - {currentWeek.end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            {currentWeek.start.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })}{" "}
+            -{" "}
+            {currentWeek.end.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
             <span className="mx-1 text-gray-200">|</span>
-            <span className="text-purple-600 font-bold">{currentWeek.totalHours.toFixed(1)}h</span>
+            <span className="text-purple-600 font-bold">
+              {currentWeek.totalHours.toFixed(1)}h
+            </span>
           </p>
         </div>
       </div>
 
       <div className="flex items-center gap-1">
         <button
-          onClick={() => handleChange && handleChange(Math.min(weeks.length - 1, currentWeekIndex + 1))}
+          onClick={() =>
+            handleChange &&
+            handleChange(Math.min(weeks.length - 1, currentWeekIndex + 1))
+          }
           disabled={currentWeekIndex === weeks.length - 1}
           className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           title="Previous Week"
         >
           <ChevronLeft size={20} />
         </button>
-        
+
         <div className="flex gap-1 px-2">
           {weeks.slice(0, 5).map((_, idx) => (
-            <div 
+            <div
               key={idx}
               className={`h-1.5 rounded-full transition-all duration-300 ${
-                idx === currentWeekIndex ? "w-4 bg-purple-500" : "w-1.5 bg-gray-200"
+                idx === currentWeekIndex
+                  ? "w-4 bg-purple-500"
+                  : "w-1.5 bg-gray-200"
               }`}
             />
           ))}
-          {weeks.length > 5 && <div className="text-[10px] text-gray-300">...</div>}
+          {weeks.length > 5 && (
+            <div className="text-[10px] text-gray-300">...</div>
+          )}
         </div>
 
         <button
-          onClick={() => handleChange && handleChange(Math.max(0, currentWeekIndex - 1))}
+          onClick={() =>
+            handleChange && handleChange(Math.max(0, currentWeekIndex - 1))
+          }
           disabled={currentWeekIndex === 0}
           className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           title="Next Week"
@@ -74,6 +96,5 @@ const WeekSelector = ({ weeks, currentWeekIndex, onChange, onWeekChange }) => {
     </div>
   );
 };
-
 
 export default WeekSelector;

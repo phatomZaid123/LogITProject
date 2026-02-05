@@ -1,5 +1,14 @@
 import React, { useState } from "react";
-import { Clock, Edit2, Save, X, Plus, CheckCircle, AlertCircle, Calendar } from "lucide-react";
+import {
+  Clock,
+  Edit2,
+  Save,
+  X,
+  Plus,
+  CheckCircle,
+  AlertCircle,
+  Calendar,
+} from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 
@@ -11,7 +20,15 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
   const [editData, setEditData] = useState({});
   const [loading, setLoading] = useState(false);
 
-  const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const daysOfWeek = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ];
 
   // Generate all 7 days for the week
   const weekDays = daysOfWeek.map((dayName, index) => {
@@ -20,7 +37,7 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
     date.setHours(0, 0, 0, 0);
 
     // Find entry for this day
-    const entry = entries.find(e => {
+    const entry = entries.find((e) => {
       const entryDate = new Date(e.date);
       entryDate.setHours(0, 0, 0, 0);
       return entryDate.getTime() === date.getTime();
@@ -39,7 +56,7 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
       isToday,
       isPast,
       isFuture,
-      dateStr: date.toISOString().split('T')[0]
+      dateStr: date.toISOString().split("T")[0],
     };
   });
 
@@ -73,7 +90,10 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
     try {
       if (day.entry) {
         // Update existing entry
-        const response = await api.put(`/student/timesheets/${day.entry._id}`, editData);
+        const response = await api.put(
+          `/student/timesheets/${day.entry._id}`,
+          editData,
+        );
         onUpdate(day.entry._id, response.data);
         toast.success("Entry updated successfully!");
       } else {
@@ -103,16 +123,42 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
   const getStatusBadge = (status) => {
     const statusConfig = {
       pending: { bg: "bg-gray-100", text: "text-gray-700", label: "Draft" },
-      submitted_to_company: { bg: "bg-amber-100", text: "text-amber-700", label: "Company" },
-      company_approved: { bg: "bg-green-100", text: "text-green-700", label: "Approved" },
-      company_declined: { bg: "bg-red-100", text: "text-red-700", label: "Declined" },
-      submitted_to_dean: { bg: "bg-blue-100", text: "text-blue-700", label: "Dean" },
-      dean_approved: { bg: "bg-emerald-100", text: "text-emerald-700", label: "✓ Done" },
-      dean_declined: { bg: "bg-red-100", text: "text-red-700", label: "Declined" },
+      submitted_to_company: {
+        bg: "bg-amber-100",
+        text: "text-amber-700",
+        label: "Company",
+      },
+      company_approved: {
+        bg: "bg-green-100",
+        text: "text-green-700",
+        label: "Approved",
+      },
+      company_declined: {
+        bg: "bg-red-100",
+        text: "text-red-700",
+        label: "Declined",
+      },
+      submitted_to_dean: {
+        bg: "bg-blue-100",
+        text: "text-blue-700",
+        label: "Dean",
+      },
+      dean_approved: {
+        bg: "bg-emerald-100",
+        text: "text-emerald-700",
+        label: "✓ Done",
+      },
+      dean_declined: {
+        bg: "bg-red-100",
+        text: "text-red-700",
+        label: "Declined",
+      },
     };
     const config = statusConfig[status] || statusConfig.pending;
     return (
-      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${config.bg} ${config.text} whitespace-nowrap`}>
+      <span
+        className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${config.bg} ${config.text} whitespace-nowrap`}
+      >
         {config.label}
       </span>
     );
@@ -121,7 +167,10 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
   const canEdit = (day) => {
     if (role === "company") {
       if (!companyCanEdit) return false;
-      return day.entry && ["submitted_to_company", "edited_by_company"].includes(day.entry.status);
+      return (
+        day.entry &&
+        ["submitted_to_company", "edited_by_company"].includes(day.entry.status)
+      );
     }
 
     if (!studentCanEdit) return false;
@@ -175,15 +224,20 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
                   day.isToday
                     ? "bg-blue-50 hover:bg-blue-100"
                     : day.entry
-                    ? "hover:bg-gray-50"
-                    : "bg-gray-50 hover:bg-gray-100"
+                      ? "hover:bg-gray-50"
+                      : "bg-gray-50 hover:bg-gray-100"
                 }`}
               >
                 {/* Date */}
                 <td className="px-2 py-2">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1">
-                    <div className={`text-xs font-semibold whitespace-nowrap ${day.isToday ? "text-blue-700" : "text-gray-700"}`}>
-                      {day.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    <div
+                      className={`text-xs font-semibold whitespace-nowrap ${day.isToday ? "text-blue-700" : "text-gray-700"}`}
+                    >
+                      {day.date.toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
                     </div>
                     {day.isToday && (
                       <span className="px-1.5 py-0.5 bg-blue-500 text-white text-[10px] font-bold rounded-full w-fit">
@@ -195,7 +249,9 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
 
                 {/* Day Name */}
                 <td className="px-2 py-2">
-                  <span className={`text-xs font-medium ${day.isToday ? "text-blue-700" : "text-gray-600"}`}>
+                  <span
+                    className={`text-xs font-medium ${day.isToday ? "text-blue-700" : "text-gray-600"}`}
+                  >
                     {day.dayName}
                   </span>
                 </td>
@@ -206,11 +262,15 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
                     <input
                       type="time"
                       value={editData.timeIn}
-                      onChange={(e) => setEditData({ ...editData, timeIn: e.target.value })}
+                      onChange={(e) =>
+                        setEditData({ ...editData, timeIn: e.target.value })
+                      }
                       className="w-full max-w-25 px-2 py-1 border border-purple-300 rounded text-xs focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
                   ) : day.entry ? (
-                    <span className="text-xs font-medium text-gray-800">{day.entry.timeIn}</span>
+                    <span className="text-xs font-medium text-gray-800">
+                      {day.entry.timeIn}
+                    </span>
                   ) : (
                     <span className="text-xs text-gray-400">--:--</span>
                   )}
@@ -222,11 +282,15 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
                     <input
                       type="time"
                       value={editData.timeOut}
-                      onChange={(e) => setEditData({ ...editData, timeOut: e.target.value })}
+                      onChange={(e) =>
+                        setEditData({ ...editData, timeOut: e.target.value })
+                      }
                       className="w-full max-w-25 px-2 py-1 border border-purple-300 rounded text-xs focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
                   ) : day.entry ? (
-                    <span className="text-xs font-medium text-gray-800">{day.entry.timeOut}</span>
+                    <span className="text-xs font-medium text-gray-800">
+                      {day.entry.timeOut}
+                    </span>
                   ) : (
                     <span className="text-xs text-gray-400">--:--</span>
                   )}
@@ -239,14 +303,21 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
                       <input
                         type="number"
                         value={editData.breakMinutes}
-                        onChange={(e) => setEditData({ ...editData, breakMinutes: parseInt(e.target.value) || 0 })}
+                        onChange={(e) =>
+                          setEditData({
+                            ...editData,
+                            breakMinutes: parseInt(e.target.value) || 0,
+                          })
+                        }
                         className="w-full max-w-15 px-2 py-1 border border-purple-300 rounded text-xs focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                         min="0"
                       />
                       <span className="text-[10px] text-gray-500">min</span>
                     </div>
                   ) : day.entry ? (
-                    <span className="text-xs font-medium text-gray-800">{day.entry.breakMinutes} min</span>
+                    <span className="text-xs font-medium text-gray-800">
+                      {day.entry.breakMinutes} min
+                    </span>
                   ) : (
                     <span className="text-xs text-gray-400">--</span>
                   )}
@@ -257,7 +328,9 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
                   {day.entry ? (
                     <div className="flex items-center gap-1">
                       <Clock className="text-purple-600" size={14} />
-                      <span className="text-xs font-bold text-purple-600">{day.entry.totalHours || 0}h</span>
+                      <span className="text-xs font-bold text-purple-600">
+                        {day.entry.totalHours || 0}h
+                      </span>
                     </div>
                   ) : (
                     <span className="text-xs text-gray-400">--</span>
@@ -269,9 +342,13 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
                   {day.entry ? (
                     getStatusBadge(day.entry.status)
                   ) : day.isFuture ? (
-                    <span className="text-[10px] text-gray-400 italic">Future</span>
+                    <span className="text-[10px] text-gray-400 italic">
+                      Future
+                    </span>
                   ) : (
-                    <span className="text-[10px] text-gray-400 italic">No entry</span>
+                    <span className="text-[10px] text-gray-400 italic">
+                      No entry
+                    </span>
                   )}
                 </td>
 

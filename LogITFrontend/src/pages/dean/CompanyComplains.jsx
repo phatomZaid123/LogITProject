@@ -44,7 +44,9 @@ const formatDateTime = (value) => {
 function CompanyComplains() {
   const { user } = useAuth();
   const { threads, addMessage } = useComplaints();
-  const [selectedThreadId, setSelectedThreadId] = useState(threads[0]?.id || null);
+  const [selectedThreadId, setSelectedThreadId] = useState(
+    threads[0]?.id || null,
+  );
   const [deanNote, setDeanNote] = useState("");
 
   useEffect(() => {
@@ -66,19 +68,25 @@ function CompanyComplains() {
 
   const orderedThreads = useMemo(() => {
     return [...threads].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
   }, [threads]);
 
   const selectedThread = useMemo(() => {
-    return orderedThreads.find((thread) => thread.id === selectedThreadId) || orderedThreads[0] || null;
+    return (
+      orderedThreads.find((thread) => thread.id === selectedThreadId) ||
+      orderedThreads[0] ||
+      null
+    );
   }, [orderedThreads, selectedThreadId]);
 
   const handleAcknowledge = (event) => {
     event.preventDefault();
     if (!selectedThread) return;
 
-    const messageBody = deanNote.trim() || "Complaint acknowledged. We'll keep you posted.";
+    const messageBody =
+      deanNote.trim() || "Complaint acknowledged. We'll keep you posted.";
 
     addMessage(selectedThread.id, {
       authorRole: "dean",
@@ -91,14 +99,19 @@ function CompanyComplains() {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[320px_1fr]" style={{ fontFamily: "var(--logit-sans)" }}>
+    <div
+      className="grid gap-6 lg:grid-cols-[320px_1fr]"
+      style={{ fontFamily: "var(--logit-sans)" }}
+    >
       <Card className="border-slate-200 shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Inbox size={18} className="text-purple-600" />
             Incoming complaints
           </CardTitle>
-          <CardDescription>Pick a thread to review and acknowledge.</CardDescription>
+          <CardDescription>
+            Pick a thread to review and acknowledge.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {orderedThreads.length === 0 && (
@@ -126,12 +139,15 @@ function CompanyComplains() {
               >
                 <div className="flex items-center justify-between gap-3 text-sm font-semibold text-slate-900">
                   <span>{thread.subject}</span>
-                  <span className={`rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-wide ${token.className}`}>
+                  <span
+                    className={`rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-wide ${token.className}`}
+                  >
                     {token.label}
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-slate-500">
-                  {thread.company?.name} • Logged {formatDateTime(thread.createdAt)}
+                  {thread.company?.name} • Logged{" "}
+                  {formatDateTime(thread.createdAt)}
                 </p>
               </button>
             );
@@ -145,8 +161,12 @@ function CompanyComplains() {
             <CardHeader className="border-b border-slate-100">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Complaint</p>
-                  <CardTitle className="text-2xl mt-1">{selectedThread.subject}</CardTitle>
+                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                    Complaint
+                  </p>
+                  <CardTitle className="text-2xl mt-1">
+                    {selectedThread.subject}
+                  </CardTitle>
                   <CardDescription>
                     {selectedThread.company?.name} • {selectedThread.category}
                   </CardDescription>
@@ -162,7 +182,9 @@ function CompanyComplains() {
               <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
                 <p className="font-semibold text-slate-800">Company contact</p>
                 <p>{selectedThread.company?.contact}</p>
-                <p className="text-xs text-slate-500">{selectedThread.company?.email}</p>
+                <p className="text-xs text-slate-500">
+                  {selectedThread.company?.email}
+                </p>
               </div>
 
               <div className="space-y-3">
@@ -176,7 +198,9 @@ function CompanyComplains() {
                     }`}
                   >
                     <div className="flex items-center justify-between text-xs text-slate-500">
-                      <span className="font-semibold text-slate-700">{message.authorName}</span>
+                      <span className="font-semibold text-slate-700">
+                        {message.authorName}
+                      </span>
                       <span>{formatDateTime(message.timestamp)}</span>
                     </div>
                     <p className="mt-2 text-slate-800">{message.body}</p>
@@ -196,8 +220,13 @@ function CompanyComplains() {
                 ))}
               </div>
 
-              <form onSubmit={handleAcknowledge} className="rounded-2xl border border-slate-200 p-4">
-                <label className="text-xs uppercase tracking-[0.3em] text-slate-400">Dean note (optional)</label>
+              <form
+                onSubmit={handleAcknowledge}
+                className="rounded-2xl border border-slate-200 p-4"
+              >
+                <label className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                  Dean note (optional)
+                </label>
                 <textarea
                   rows={4}
                   value={deanNote}
@@ -206,7 +235,9 @@ function CompanyComplains() {
                   placeholder="Acknowledge the complaint or request quick clarifications."
                 />
                 <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-                  <span>The company receives this reply as an acknowledgement.</span>
+                  <span>
+                    The company receives this reply as an acknowledgement.
+                  </span>
                   <Button type="submit" className="flex items-center gap-2">
                     Send acknowledgement
                     <Send size={16} />
@@ -225,5 +256,3 @@ function CompanyComplains() {
   );
 }
 export default CompanyComplains;
-
-

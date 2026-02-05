@@ -419,7 +419,9 @@ const getStudentTasks = async (req, res) => {
     res.status(200).json({ success: true, tasks });
   } catch (error) {
     console.error("Get Student Tasks Error:", error);
-    res.status(500).json({ message: "Failed to load tasks", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Failed to load tasks", error: error.message });
   }
 };
 

@@ -9,7 +9,9 @@ const buildApprovedHoursMap = async (studentIds = []) => {
   const stats = await TIMESHEET.aggregate([
     {
       $match: {
-        student: { $in: studentIds.map((id) => new mongoose.Types.ObjectId(id)) },
+        student: {
+          $in: studentIds.map((id) => new mongoose.Types.ObjectId(id)),
+        },
         status: "dean_approved",
       },
     },
@@ -128,8 +130,10 @@ export const getPendingApprovals = async (req, res) => {
     const companyId = req.user._id;
 
     // First get all students assigned to this company
-    const assignedStudents = await Student.find({ assigned_company: companyId }).select('_id');
-    const studentIds = assignedStudents.map(s => s._id);
+    const assignedStudents = await Student.find({
+      assigned_company: companyId,
+    }).select("_id");
+    const studentIds = assignedStudents.map((s) => s._id);
 
     const pendingStudents = await TIMESHEET.aggregate([
       {
@@ -179,8 +183,13 @@ export const approveAllStudentEntries = async (req, res) => {
 
     // Verify student is assigned to this company first
     const student = await Student.findById(studentId);
-    if (!student || student.assigned_company?.toString() !== companyId.toString()) {
-      return res.status(403).json({ message: "Student is not assigned to your company" });
+    if (
+      !student ||
+      student.assigned_company?.toString() !== companyId.toString()
+    ) {
+      return res
+        .status(403)
+        .json({ message: "Student is not assigned to your company" });
     }
 
     // Update all 'submitted_to_company' entries for this specific student
@@ -212,13 +221,20 @@ export const companyReviewTimesheet = async (req, res) => {
 
     // Security: Verify the student who owns this entry is assigned to this company
     const student = await Student.findById(entry.student);
-    if (!student || student.assigned_company?.toString() !== companyId.toString()) {
-      return res.status(403).json({ message: "Not authorized to review this entry" });
+    if (
+      !student ||
+      student.assigned_company?.toString() !== companyId.toString()
+    ) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to review this entry" });
     }
 
     // Only allow review if entry is in 'submitted_to_company' status
     if (entry.status !== "submitted_to_company") {
-      return res.status(400).json({ message: "Entry is not pending company review" });
+      return res
+        .status(400)
+        .json({ message: "Entry is not pending company review" });
     }
 
     // Handle Time Edits vs Status Updates
@@ -332,10 +348,7 @@ const createTask = async (req, res) => {
       companyAttachments: attachments,
     });
 
-    await task.populate(
-      "assigned_to",
-      "name email student_admission_number",
-    );
+    await task.populate("assigned_to", "name email student_admission_number");
 
     res.status(201).json({
       success: true,

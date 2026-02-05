@@ -164,7 +164,8 @@ function App() {
             {
               path: "reports",
               element: <CompanyReports />,
-            },{
+            },
+            {
               path: "complaints",
               element: <ComplainToDean />,
             },

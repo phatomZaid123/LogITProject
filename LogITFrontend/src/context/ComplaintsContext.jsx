@@ -1,4 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 const ComplaintsContext = createContext();
 const STORAGE_KEY = "logit:complaints:threads";
@@ -35,16 +42,14 @@ const seedThreads = [
         id: generateId("msg"),
         authorRole: "company",
         authorName: "Mara Dimalanta",
-        body:
-          "Our interns cannot submit their week 5 reports because the submission window throws a locked state.",
+        body: "Our interns cannot submit their week 5 reports because the submission window throws a locked state.",
         timestamp: "2026-01-26T09:32:00.000Z",
       },
       {
         id: generateId("msg"),
         authorRole: "dean",
         authorName: "Dr. Mae Reyes",
-        body:
-          "We pushed a patch to reopen week 5. Please ask interns to refresh and retry.",
+        body: "We pushed a patch to reopen week 5. Please ask interns to refresh and retry.",
         timestamp: "2026-01-26T10:05:00.000Z",
       },
       {
@@ -93,16 +98,14 @@ const seedThreads = [
         id: generateId("msg"),
         authorRole: "company",
         authorName: "Harvey Lin",
-        body:
-          "We would like to extend two interns for 60 additional hours. Does the dean's office need a new MOU?",
+        body: "We would like to extend two interns for 60 additional hours. Does the dean's office need a new MOU?",
         timestamp: "2026-01-28T13:45:00.000Z",
       },
       {
         id: generateId("msg"),
         authorRole: "dean",
         authorName: "Dean Secretariat",
-        body:
-          "Please share their updated schedules. Once received we can issue an addendum letter.",
+        body: "Please share their updated schedules. Once received we can issue an addendum letter.",
         timestamp: "2026-01-29T08:11:00.000Z",
       },
     ],
@@ -189,7 +192,7 @@ export const ComplaintsProvider = ({ children }) => {
         if (thread.id !== threadId) return thread;
         nextThread = mutator(thread);
         return nextThread;
-      })
+      }),
     );
     return nextThread;
   }, []);
@@ -214,7 +217,8 @@ export const ComplaintsProvider = ({ children }) => {
         {
           id: generateId("msg"),
           authorRole: "company",
-          authorName: payload.company?.contact || payload.company?.name || "Company",
+          authorName:
+            payload.company?.contact || payload.company?.name || "Company",
           body: payload.details,
           attachments: payload.attachments || [],
           timestamp,
@@ -234,67 +238,80 @@ export const ComplaintsProvider = ({ children }) => {
     return newThread;
   }, []);
 
-  const addMessage = useCallback((threadId, payload) => {
-    const timestamp = payload.timestamp || new Date().toISOString();
+  const addMessage = useCallback(
+    (threadId, payload) => {
+      const timestamp = payload.timestamp || new Date().toISOString();
 
-    return mutateThread(threadId, (thread) => {
-      const derivedStatus =
-        payload.authorRole === "company"
-          ? "awaiting-dean"
-          : payload.authorRole === "dean"
-          ? "awaiting-company"
-          : thread.status;
+      return mutateThread(threadId, (thread) => {
+        const derivedStatus =
+          payload.authorRole === "company"
+            ? "awaiting-dean"
+            : payload.authorRole === "dean"
+              ? "awaiting-company"
+              : thread.status;
 
-      const entry = {
-        id: generateId("msg"),
-        authorRole: payload.authorRole,
-        authorName: payload.authorName,
-        body: payload.body,
-        attachments: payload.attachments || [],
-        timestamp,
-      };
-
-      return {
-        ...thread,
-        messages: [...thread.messages, entry],
-        updatedAt: timestamp,
-        status: payload.overrideStatus || derivedStatus,
-      };
-    });
-  }, [mutateThread]);
-
-  const updateStatus = useCallback((threadId, status, actor = "System") => {
-    const timestamp = new Date().toISOString();
-
-    return mutateThread(threadId, (thread) => ({
-      ...thread,
-      status,
-      updatedAt: timestamp,
-      auditTrail: [
-        ...(thread.auditTrail || []),
-        {
-          id: generateId("evt"),
-          label: `Status moved to ${status}`,
+        const entry = {
+          id: generateId("msg"),
+          authorRole: payload.authorRole,
+          authorName: payload.authorName,
+          body: payload.body,
+          attachments: payload.attachments || [],
           timestamp,
-          actor,
-        },
-      ],
-    }));
-  }, [mutateThread]);
+        };
 
-  const assignOwner = useCallback((threadId, deanName) => {
-    return mutateThread(threadId, (thread) => ({
-      ...thread,
-      assignedDean: deanName,
-    }));
-  }, [mutateThread]);
+        return {
+          ...thread,
+          messages: [...thread.messages, entry],
+          updatedAt: timestamp,
+          status: payload.overrideStatus || derivedStatus,
+        };
+      });
+    },
+    [mutateThread],
+  );
+
+  const updateStatus = useCallback(
+    (threadId, status, actor = "System") => {
+      const timestamp = new Date().toISOString();
+
+      return mutateThread(threadId, (thread) => ({
+        ...thread,
+        status,
+        updatedAt: timestamp,
+        auditTrail: [
+          ...(thread.auditTrail || []),
+          {
+            id: generateId("evt"),
+            label: `Status moved to ${status}`,
+            timestamp,
+            actor,
+          },
+        ],
+      }));
+    },
+    [mutateThread],
+  );
+
+  const assignOwner = useCallback(
+    (threadId, deanName) => {
+      return mutateThread(threadId, (thread) => ({
+        ...thread,
+        assignedDean: deanName,
+      }));
+    },
+    [mutateThread],
+  );
 
   const value = useMemo(
     () => ({ threads, createComplaint, addMessage, updateStatus, assignOwner }),
-    [threads, createComplaint, addMessage, updateStatus, assignOwner]
+    [threads, createComplaint, addMessage, updateStatus, assignOwner],
   );
 
-  return <ComplaintsContext.Provider value={value}>{children}</ComplaintsContext.Provider>;
+  return (
+    <ComplaintsContext.Provider value={value}>
+      {children}
+    </ComplaintsContext.Provider>
+  );
 };
 
 export const useComplaints = () => {

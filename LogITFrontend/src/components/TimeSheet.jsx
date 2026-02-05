@@ -8,7 +8,8 @@ const CompanyTimesheetGrid = ({ isEditable, rows, displayRows, setRows }) => {
   const userRole = user?.role;
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({});
-  const visibleRows = Array.isArray(displayRows) && displayRows.length >= 0 ? displayRows : rows;
+  const visibleRows =
+    Array.isArray(displayRows) && displayRows.length >= 0 ? displayRows : rows;
 
   // Start editing a row
   const handleEdit = (row) => {
@@ -172,149 +173,166 @@ const CompanyTimesheetGrid = ({ isEditable, rows, displayRows, setRows }) => {
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {visibleRows && visibleRows.length > 0 ? visibleRows.map((row) => {
-            const isEditing = editingId === row._id;
-            const editable = canEdit(row);
+          {visibleRows && visibleRows.length > 0 ? (
+            visibleRows.map((row) => {
+              const isEditing = editingId === row._id;
+              const editable = canEdit(row);
 
-            return (
-              <tr
-                key={row._id}
-                className="hover:bg-gray-50 transition-colors duration-150"
-              >
-                {/* Date */}
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                  {new Date(row.date).toLocaleDateString("en-US", {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </td>
+              return (
+                <tr
+                  key={row._id}
+                  className="hover:bg-gray-50 transition-colors duration-150"
+                >
+                  {/* Date */}
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                    {new Date(row.date).toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </td>
 
-                {/* Time In */}
-                <td className="px-4 py-4 whitespace-nowrap">
-                  {isEditing ? (
-                    <input
-                      type="time"
-                      value={editData.timeIn}
-                      onChange={(e) => handleChange("timeIn", e.target.value)}
-                      className="px-2 py-1 border border-purple-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    />
-                  ) : (
-                    <span className="text-sm text-gray-900">{row.timeIn}</span>
-                  )}
-                </td>
+                  {/* Time In */}
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    {isEditing ? (
+                      <input
+                        type="time"
+                        value={editData.timeIn}
+                        onChange={(e) => handleChange("timeIn", e.target.value)}
+                        className="px-2 py-1 border border-purple-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                    ) : (
+                      <span className="text-sm text-gray-900">
+                        {row.timeIn}
+                      </span>
+                    )}
+                  </td>
 
-                {/* Time Out */}
-                <td className="px-4 py-4 whitespace-nowrap">
-                  {isEditing ? (
-                    <input
-                      type="time"
-                      value={editData.timeOut}
-                      onChange={(e) => handleChange("timeOut", e.target.value)}
-                      className="px-2 py-1 border border-purple-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    />
-                  ) : (
-                    <span className="text-sm text-gray-900">{row.timeOut}</span>
-                  )}
-                </td>
+                  {/* Time Out */}
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    {isEditing ? (
+                      <input
+                        type="time"
+                        value={editData.timeOut}
+                        onChange={(e) =>
+                          handleChange("timeOut", e.target.value)
+                        }
+                        className="px-2 py-1 border border-purple-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                    ) : (
+                      <span className="text-sm text-gray-900">
+                        {row.timeOut}
+                      </span>
+                    )}
+                  </td>
 
-                {/* Break Minutes */}
-                <td className="px-4 py-4 whitespace-nowrap">
-                  {isEditing ? (
-                    <input
-                      type="number"
-                      value={editData.breakMinutes}
-                      onChange={(e) =>
-                        handleChange("breakMinutes", parseInt(e.target.value))
-                      }
-                      className="w-20 px-2 py-1 border border-purple-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      min="0"
-                    />
-                  ) : (
-                    <span className="text-sm text-gray-900">
-                      {row.breakMinutes} min
+                  {/* Break Minutes */}
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        value={editData.breakMinutes}
+                        onChange={(e) =>
+                          handleChange("breakMinutes", parseInt(e.target.value))
+                        }
+                        className="w-20 px-2 py-1 border border-purple-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        min="0"
+                      />
+                    ) : (
+                      <span className="text-sm text-gray-900">
+                        {row.breakMinutes} min
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Total Hours */}
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <span className="text-lg font-bold text-purple-600">
+                      {row.totalHours || 0}h
                     </span>
-                  )}
-                </td>
+                  </td>
 
-                {/* Total Hours */}
-                <td className="px-4 py-4 whitespace-nowrap">
-                  <span className="text-lg font-bold text-purple-600">
-                    {row.totalHours || 0}h
-                  </span>
-                </td>
+                  {/* Status */}
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    {getStatusBadge(row.status)}
+                  </td>
 
-                {/* Status */}
-                <td className="px-4 py-4 whitespace-nowrap">
-                  {getStatusBadge(row.status)}
-                </td>
+                  {/* Actions */}
+                  <td className="px-4 py-4 whitespace-nowrap text-center">
+                    {isEditing ? (
+                      <div className="flex gap-2 justify-center">
+                        <button
+                          onClick={() => handleSave(row._id)}
+                          className="p-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+                          title="Save"
+                        >
+                          <Save size={16} />
+                        </button>
+                        <button
+                          onClick={handleCancel}
+                          className="p-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+                          title="Cancel"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2 justify-center">
+                        <button
+                          onClick={() => handleEdit(row)}
+                          disabled={!editable}
+                          className={`p-2 rounded-md transition-colors ${
+                            editable
+                              ? "bg-blue-500 text-white hover:bg-blue-600"
+                              : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                          }`}
+                          title={editable ? "Edit" : "Cannot edit"}
+                        >
+                          <Edit2 size={16} />
+                        </button>
 
-                {/* Actions */}
-                <td className="px-4 py-4 whitespace-nowrap text-center">
-                  {isEditing ? (
-                    <div className="flex gap-2 justify-center">
-                      <button
-                        onClick={() => handleSave(row._id)}
-                        className="p-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
-                        title="Save"
-                      >
-                        <Save size={16} />
-                      </button>
-                      <button
-                        onClick={handleCancel}
-                        className="p-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
-                        title="Cancel"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2 justify-center">
-                      <button
-                        onClick={() => handleEdit(row)}
-                        disabled={!editable}
-                        className={`p-2 rounded-md transition-colors ${
-                          editable
-                            ? "bg-blue-500 text-white hover:bg-blue-600"
-                            : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                        }`}
-                        title={editable ? "Edit" : "Cannot edit"}
-                      >
-                        <Edit2 size={16} />
-                      </button>
-
-                      {/* Company-only approve/decline buttons */}
-                      {userRole === "company" &&
-                        row.status === "submitted_to_company" && (
-                          <>
-                            <button
-                              onClick={() =>
-                                handleStatusChange(row._id, "company_approved")
-                              }
-                              className="p-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
-                              title="Approve"
-                            >
-                              <CheckCircle size={16} />
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleStatusChange(row._id, "company_declined")
-                              }
-                              className="p-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
-                              title="Decline"
-                            >
-                              <X size={16} />
-                            </button>
-                          </>
-                        )}
-                    </div>
-                  )}
-                </td>
-              </tr>
-            );
-          }) : (
+                        {/* Company-only approve/decline buttons */}
+                        {userRole === "company" &&
+                          row.status === "submitted_to_company" && (
+                            <>
+                              <button
+                                onClick={() =>
+                                  handleStatusChange(
+                                    row._id,
+                                    "company_approved",
+                                  )
+                                }
+                                className="p-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+                                title="Approve"
+                              >
+                                <CheckCircle size={16} />
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleStatusChange(
+                                    row._id,
+                                    "company_declined",
+                                  )
+                                }
+                                className="p-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                                title="Decline"
+                              >
+                                <X size={16} />
+                              </button>
+                            </>
+                          )}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })
+          ) : (
             <tr>
-              <td colSpan={7} className="px-4 py-6 text-center text-sm text-gray-500">
+              <td
+                colSpan={7}
+                className="px-4 py-6 text-center text-sm text-gray-500"
+              >
                 No entries match the selected filter.
               </td>
             </tr>

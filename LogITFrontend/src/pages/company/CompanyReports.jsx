@@ -38,7 +38,8 @@ const COMPANY_STATE_META = {
   needs_student: {
     label: "Sent Back",
     badge: "bg-red-50 text-red-600 border border-red-100",
-    description: "Company declined at least one day. Student must revise before resubmitting.",
+    description:
+      "Company declined at least one day. Student must revise before resubmitting.",
   },
   ready_for_dean: {
     label: "Approved",
@@ -63,7 +64,10 @@ const deriveCompanyState = (entries = []) => {
   if (statuses.some((status) => status === "submitted_to_company")) {
     return "awaiting_review";
   }
-  if (statuses.length > 0 && statuses.every((status) => status === "company_approved")) {
+  if (
+    statuses.length > 0 &&
+    statuses.every((status) => status === "company_approved")
+  ) {
     return "ready_for_dean";
   }
   return "idle";
@@ -74,8 +78,13 @@ const buildStudentSummary = (entries = []) => {
     acc[entry.status] = (acc[entry.status] || 0) + 1;
     return acc;
   }, {});
-  const pendingEntries = entries.filter((entry) => entry.status === "submitted_to_company");
-  const hoursPending = pendingEntries.reduce((sum, entry) => sum + (entry.totalHours || 0), 0);
+  const pendingEntries = entries.filter(
+    (entry) => entry.status === "submitted_to_company",
+  );
+  const hoursPending = pendingEntries.reduce(
+    (sum, entry) => sum + (entry.totalHours || 0),
+    0,
+  );
   const lastSubmitted = pendingEntries.reduce((latest, entry) => {
     const date = new Date(entry.updatedAt || entry.date);
     return date > latest ? date : latest;
