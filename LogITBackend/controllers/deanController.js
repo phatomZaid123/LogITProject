@@ -3,6 +3,37 @@ import QRCode from "qrcode";
 import Student from "../models/student.js";
 import mongoose from "mongoose";
 import Company from "../models/company.js";
+import { LOGBOOK } from "../models/logbook.js";
+import { TIMESHEET } from "../models/timesheet.js";
+
+const enrichCompaniesWithAssignments = async (companies = []) => {
+  if (!companies.length) return companies;
+
+  const companyIds = companies.map((company) => company._id);
+  const assignmentCounts = await Student.aggregate([
+    {
+      $match: {
+        assigned_company: { $in: companyIds },
+      },
+    },
+    {
+      $group: {
+        _id: "$assigned_company",
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const assignmentMap = assignmentCounts.reduce((acc, entry) => {
+    acc[entry._id.toString()] = entry.count;
+    return acc;
+  }, {});
+
+  return companies.map((company) => ({
+    ...company,
+    assignedStudentCount: assignmentMap[company._id.toString()] || 0,
+  }));
+};
 
 // Helper to generate the full object
 const generateInviteData = async (token, type) => {
@@ -10,6 +41,48 @@ const generateInviteData = async (token, type) => {
   const link = `${baseUrl}/register/${type}?token=${token}`;
   const qrCode = await QRCode.toDataURL(link);
   return { link, qrCode };
+};
+const buildApprovedHoursMap = async (studentIds = []) => {
+  if (!studentIds.length) return {};
+
+  const stats = await TIMESHEET.aggregate([
+    {
+      $match: {
+        student: {
+          $in: studentIds.map((id) => new mongoose.Types.ObjectId(id)),
+        },
+        status: "dean_approved",
+      },
+    },
+    {
+      $group: {
+        _id: "$student",
+        totalHours: { $sum: "$totalHours" },
+      },
+    },
+  ]);
+
+  return stats.reduce((acc, entry) => {
+    acc[entry._id.toString()] = entry.totalHours || 0;
+    return acc;
+  }, {});
+};
+
+const attachStudentHourStats = async (students = []) => {
+  if (!students.length) return students;
+
+  const studentIds = students.map((student) => student._id);
+  const approvedMap = await buildApprovedHoursMap(studentIds);
+
+  return students.map((student) => {
+    const required = student.ojt_hours_required || 500;
+    const completed = approvedMap[student._id.toString()] || 0;
+    return {
+      ...student,
+      ojt_hours_completed: completed,
+      ojt_hours_remaining: Math.max(0, required - completed),
+    };
+  });
 };
 
 //creating of new batch by dean
@@ -29,7 +102,7 @@ const createBatch = async (req, res) => {
 
     await Batch.updateMany({}, { isActive: false });
 
-    const studentInviteToken = crypto.randomUUID(); // Modern 2026 approach for tokens
+    const studentInviteToken = crypto.randomUUID(); 
     const companyInviteToken = crypto.randomUUID();
 
     const newBatch = new Batch({
@@ -43,20 +116,9 @@ const createBatch = async (req, res) => {
 
     await newBatch.save();
 
-    // Generate QR codes for the response
-    const studentInvite = await generateInviteData(
-      studentInviteToken,
-      "student",
-    );
-    const companyInvite = await generateInviteData(
-      companyInviteToken,
-      "company",
-    );
 
     res.status(201).json({
       message: `Batch ${batchName} created successfully`,
-      studentInvite,
-      companyInvite,
     });
   } catch (error) {
     res
@@ -100,10 +162,31 @@ const filterStudentsByBatch = async (req, res) => {
   const { batchId } = req.params;
 
   try {
-    const students = await Student.find({ student_batch: batchId }).select(
-      "-password -createdAt -updatedAt -__v -role",
-    );
-    res.status(200).json(students);
+    const students = await Student.find({ student_batch: batchId })
+      .select("-password -createdAt -updatedAt -__v -role")
+      .populate("assigned_company", "name")
+      .populate("student_batch", "session_name")
+      .lean();
+
+    // Flatten the student response to use string names
+    const flattenedStudents = students.map((student) => {
+      const companyName = student.assigned_company?.name || "Unassigned";
+      const companyId = student.assigned_company?._id || null;
+      const batchName = student.student_batch?.session_name || "N/A";
+      const batchId = student.student_batch?._id || null;
+
+      return {
+        ...student,
+        assigned_company: companyName,
+        assigned_company_id: companyId,
+        student_batch: batchName,
+        student_batch_id: batchId,
+      };
+    });
+
+    const studentsWithHours = await attachStudentHourStats(flattenedStudents);
+
+    res.status(200).json(studentsWithHours);
   } catch (error) {
     res.status(500).json({ message: "Server Error", error });
   }
@@ -157,6 +240,7 @@ const createStudent = async (req, res) => {
       student_admission_number: studentAdmissionNumber,
       student_course: studentCourse,
       student_batch: studentBatch,
+      ojt_hours_required: 500,
       role: "student",
     });
 
@@ -197,8 +281,10 @@ const getAllStudents = async (req, res) => {
       };
     });
 
+    const studentsWithHours = await attachStudentHourStats(flattenedStudents);
+
     res.status(200).json({
-      students: flattenedStudents,
+      students: studentsWithHours,
     });
   } catch (error) {
     console.error("Fetch Error:", error);
@@ -206,19 +292,119 @@ const getAllStudents = async (req, res) => {
   }
 };
 
-
 const getAllCompany = async (req, res) => {
   try {
     const companies = await Company.find({})
       .select("-password -createdAt -updatedAt -__v -role ")
       .lean();
 
+    const enrichedCompanies = await enrichCompaniesWithAssignments(companies);
+
     res.status(200).json({
-      company: companies,
+      company: enrichedCompanies,
     });
   } catch (error) {
     console.error("Fetch Error:", error);
     res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
+const getCompanyProfile = async (req, res) => {
+  try {
+    const { companyId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(companyId)) {
+      return res.status(400).json({ message: "Invalid company ID format" });
+    }
+
+    const company = await Company.findById(companyId)
+      .select("-password -__v -role")
+      .lean();
+
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
+    const students = await Student.find({ assigned_company: companyId })
+      .select(
+        "name email student_admission_number student_course ojt_hours_required completed_program",
+      )
+      .lean();
+
+    const studentsWithHours = await attachStudentHourStats(students);
+
+    const studentIds = studentsWithHours.map((student) => student._id);
+    const lastEntryStats = studentIds.length
+      ? await TIMESHEET.aggregate([
+          { $match: { student: { $in: studentIds } } },
+          {
+            $group: {
+              _id: "$student",
+              lastEntry: { $max: "$date" },
+            },
+          },
+        ])
+      : [];
+
+    const lastEntryMap = lastEntryStats.reduce((acc, stat) => {
+      acc[stat._id.toString()] = stat.lastEntry || null;
+      return acc;
+    }, {});
+
+    const enrichedStudents = studentsWithHours.map((student) => {
+      const required = student.ojt_hours_required || 500;
+      const completed = Number(student.ojt_hours_completed || 0);
+      const progress = required
+        ? Number(((completed / required) * 100).toFixed(1))
+        : 0;
+
+      return {
+        ...student,
+        renderedHours: completed,
+        progress,
+        lastEntry: lastEntryMap[student._id.toString()] || null,
+      };
+    });
+
+    const totalCompanyHours = enrichedStudents.reduce(
+      (sum, student) => sum + (student.renderedHours || 0),
+      0,
+    );
+
+    const stats = {
+      totalStudents: enrichedStudents.length,
+      completedStudents: enrichedStudents.filter(
+        (student) => student.completed_program,
+      ).length,
+      inProgressStudents: enrichedStudents.filter(
+        (student) => !student.completed_program,
+      ).length,
+      totalHoursLogged: Number(totalCompanyHours.toFixed(2)),
+      averageProgress: enrichedStudents.length
+        ? Number(
+            (
+              enrichedStudents.reduce(
+                (sum, student) => sum + (student.progress || 0),
+                0,
+              ) / enrichedStudents.length
+            ).toFixed(1),
+          )
+        : 0,
+    };
+
+    res.status(200).json({
+      success: true,
+      company,
+      stats,
+      students: enrichedStudents,
+    });
+  } catch (error) {
+    console.error("Company Profile Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch company profile",
+      error: error.message,
+    });
   }
 };
 
@@ -230,18 +416,405 @@ const getStudentById = async (req, res) => {
       return res.status(400).json({ message: "Invalid student ID format" });
     }
 
+    // Fetch the student profile
     const student = await Student.findById(studentId)
       .select("-password -createdAt -updatedAt -__v -role")
-      .populate("student_batch", "session_name");
+      .populate("student_batch", "session_name year")
+      .populate("assigned_company", "name address"); 
 
     if (!student) {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    res.status(200).json(student);
+    //  Fetch the Student's Weekly Logs
+    const logs = await LOGBOOK.find({ created_by: studentId }).sort({
+      createdAt: -1,
+    });
+
+    //  Fetch the Student's Timesheets
+    const timesheets = await TIMESHEET.find({ student: studentId }).sort({
+      date: -1,
+    });
+
+    const approvedHours = timesheets
+      .filter((entry) => entry.status === "dean_approved")
+      .reduce((sum, entry) => sum + (entry.totalHours || 0), 0);
+    const requiredHours = student.ojt_hours_required || 500;
+
+    // Combine data into one response object
+    // We convert student to a plain object to add the new fields
+    const studentData = {
+      ...student.toObject(),
+      logs,
+      timesheets,
+      ojt_hours_completed: approvedHours,
+      ojt_hours_remaining: Math.max(0, requiredHours - approvedHours),
+    };
+
+    res.status(200).json(studentData);
   } catch (error) {
     console.error("Get Student Error:", error);
     res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
+// @desc    Review a student log (approve/decline)
+const reviewStudentLog = async (req, res) => {
+  try {
+    const { status, feedback } = req.body;
+    const { id } = req.params;
+
+    // Validation: Ensure status is either approved or declined
+    if (!["approved", "declined"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status update" });
+    }
+
+    // Find and Update the log
+    const updatedLog = await LOGBOOK.findByIdAndUpdate(
+      id,
+      {
+        status: status,
+        deanFeedback: feedback || "",
+      },
+      { new: true, runValidators: true },
+    ).populate("created_by", "name email"); // return student details
+
+    if (!updatedLog) {
+      return res.status(404).json({ message: "Logbook entry not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Log has been ${status}`,
+      data: updatedLog,
+    });
+  } catch (error) {
+    console.error("Dean Review Error:", error);
+    res.status(500).json({ message: "Server error during review" });
+  }
+};
+
+// @desc    Get all pending logbooks submitted to dean
+const getPendingLogs = async (req, res) => {
+  try {
+    const pendingLogs = await LOGBOOK.find({ status: "pending" })
+      .populate("created_by", "name email student_admission_number _id")
+      .sort({ createdAt: 1 }); // Oldest first (FIFO)
+
+    res.status(200).json(pendingLogs);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching pending logs" });
+  }
+};
+
+// @desc    Get all pending timesheets submitted to dean
+const getPendingTimesheets = async (req, res) => {
+  try {
+    const pendingTimesheets = await TIMESHEET.find({
+      status: "submitted_to_dean",
+    })
+      .populate("student", "name email student_admission_number")
+      .populate("company", "name")
+      .sort({ date: 1 });
+
+    res.status(200).json(pendingTimesheets);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching pending timesheets" });
+  }
+};
+
+// @desc    Review a student timesheet (approve/decline)
+const reviewTimesheet = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, deanNotes } = req.body;
+
+    if (!["dean_approved", "dean_declined"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status value" });
+    }
+
+    const timesheet = await TIMESHEET.findById(id);
+    if (!timesheet) {
+      return res.status(404).json({ message: "Timesheet not found" });
+    }
+
+    timesheet.status = status;
+    if (deanNotes) timesheet.deanNotes = deanNotes;
+
+    await timesheet.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Timesheet ${status === "dean_approved" ? "approved" : "declined"}`,
+      data: timesheet,
+    });
+  } catch (error) {
+    console.error("Dean Review Error:", error);
+    res.status(500).json({ message: "Server error during review" });
+  }
+};
+
+// @desc    Get dashboard statistics and overview data
+const getDashboardStats = async (req, res) => {
+  try {
+    // Get active batch
+    const activeBatch = await Batch.findOne({ isActive: true }).select(
+      "session_name year",
+    );
+
+    // Get total students
+    const totalStudents = await Student.countDocuments();
+
+    // Get students by status (assuming you have an internship_status field)
+    const activeStudents = await Student.countDocuments({
+      assigned_company: { $exists: true, $ne: null },
+    });
+
+    const completedStudents = totalStudents - activeStudents; // Simplified logic
+
+    // Get total companies
+    const totalCompanies = await Company.countDocuments();
+
+    // Get active companies (those with at least one student)
+    const activeCompanies = await Company.countDocuments({
+      _id: { $in: await Student.distinct("assigned_company") },
+    });
+
+    // Get pending logbooks count
+    const pendingLogs = await LOGBOOK.countDocuments({ status: "pending" });
+
+    // Get pending timesheets count
+    const pendingTimesheets = await TIMESHEET.countDocuments({
+      status: "submitted_to_dean",
+    });
+
+    // Get recent logbook submissions (last 5)
+    const recentLogs = await LOGBOOK.find()
+      .populate("created_by", "name email student_admission_number")
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select("weekNumber status createdAt");
+
+    // Get recent timesheet submissions (last 5)
+    const recentTimesheets = await TIMESHEET.find()
+      .populate("student", "name email student_admission_number")
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select("date status totalHours createdAt");
+
+    // Combine stats
+    const stats = {
+      activeBatch: activeBatch || {
+        session_name: "No Active Batch",
+        year: "N/A",
+      },
+      students: {
+        total: totalStudents,
+        active: activeStudents,
+        completed: completedStudents,
+      },
+      companies: {
+        total: totalCompanies,
+        active: activeCompanies,
+      },
+      pending: {
+        logbooks: pendingLogs,
+        timesheets: pendingTimesheets,
+        total: pendingLogs + pendingTimesheets,
+      },
+      recentActivity: {
+        logs: recentLogs,
+        timesheets: recentTimesheets,
+      },
+    };
+
+    res.status(200).json(stats);
+  } catch (error) {
+    console.error("Dashboard Stats Error:", error);
+    res.status(500).json({
+      message: "Error fetching dashboard statistics",
+      error: error.message,
+    });
+  }
+};
+
+// Get student registration QR code for the active batch
+const getStudentRegistrationQR = async (req, res) => {
+  try {
+    // Get the active batch
+    const activeBatch = await Batch.findOne({ isActive: true }).select(
+      "session_name year student_invite_code",
+    );
+
+    if (!activeBatch) {
+      return res.status(404).json({
+        success: false,
+        message: "No active batch found. Please create a batch first.",
+      });
+    }
+
+    // Generate QR code and link using the existing helper
+    const studentInvite = await generateInviteData(
+      activeBatch.student_invite_code,
+      "student",
+    );
+
+    res.status(200).json({
+      success: true,
+      batchName: activeBatch.session_name,
+      batchYear: activeBatch.year,
+      registrationLink: studentInvite.link,
+      qrCode: studentInvite.qrCode,
+    });
+  } catch (error) {
+    console.error("Error fetching student registration QR:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+// Get company registration QR code for the active batch
+const getCompanyRegistrationQR = async (req, res) => {
+  try {
+    // Get the active batch
+    const activeBatch = await Batch.findOne({ isActive: true }).select(
+      "session_name year company_invite_code",
+    );
+
+    if (!activeBatch) {
+      return res.status(404).json({
+        success: false,
+        message: "No active batch found. Please create a batch first.",
+      });
+    }
+
+    // Generate QR code and link using the existing helper
+    const companyInvite = await generateInviteData(
+      activeBatch.company_invite_code,
+      "company",
+    );
+
+    res.status(200).json({
+      success: true,
+      batchName: activeBatch.session_name,
+      batchYear: activeBatch.year,
+      registrationLink: companyInvite.link,
+      qrCode: companyInvite.qrCode,
+    });
+  } catch (error) {
+    console.error("Error fetching company registration QR:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+// Suspend a company
+const suspendCompany = async (req, res) => {
+  try {
+    const { companyId } = req.params;
+
+    const company = await Company.findById(companyId);
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: "Company not found",
+      });
+    }
+
+    company.isSuspended = true;
+    company.suspendedAt = new Date();
+    company.suspendedBy = req.user._id;
+    await company.save();
+
+    res.status(200).json({
+      success: true,
+      message: `${company.name} has been suspended successfully`,
+      company,
+    });
+  } catch (error) {
+    console.error("Error suspending company:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+// Unsuspend a company
+const unsuspendCompany = async (req, res) => {
+  try {
+    const { companyId } = req.params;
+
+    const company = await Company.findById(companyId);
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: "Company not found",
+      });
+    }
+
+    company.isSuspended = false;
+    company.suspendedAt = null;
+    company.suspendedBy = null;
+    await company.save();
+
+    res.status(200).json({
+      success: true,
+      message: `${company.name} has been unsuspended successfully`,
+      company,
+    });
+  } catch (error) {
+    console.error("Error unsuspending company:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+// Get companies by status (active/suspended)
+const getCompaniesByStatus = async (req, res) => {
+  try {
+    const { status } = req.query;
+
+    let filter = {};
+    if (status === "active") {
+      // Include companies where isSuspended is false, undefined, or null
+      filter.$or = [
+        { isSuspended: false },
+        { isSuspended: { $exists: false } },
+        { isSuspended: null },
+      ];
+    } else if (status === "suspended") {
+      filter.isSuspended = true;
+    }
+    // if status is 'all' or undefined, no filter is applied
+
+    const companies = await Company.find(filter)
+      .select("-password -__v")
+      .lean();
+    const enrichedCompanies = await enrichCompaniesWithAssignments(companies);
+
+    res.status(200).json({
+      success: true,
+      count: enrichedCompanies.length,
+      company: enrichedCompanies,
+    });
+  } catch (error) {
+    console.error("Error fetching companies:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 
@@ -253,4 +826,15 @@ export {
   getAllCompany,
   filterStudentsByBatch,
   getStudentById,
+  getPendingLogs,
+  reviewStudentLog,
+  getPendingTimesheets,
+  reviewTimesheet,
+  getDashboardStats,
+  getStudentRegistrationQR,
+  getCompanyRegistrationQR,
+  getCompanyProfile,
+  suspendCompany,
+  unsuspendCompany,
+  getCompaniesByStatus,
 };

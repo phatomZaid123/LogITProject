@@ -1,8 +1,16 @@
-export const Card = ({ children, className = "", elevated = false }) => (
+export const Card = ({
+  children,
+  className = "",
+  elevated = false,
+  onClick,
+  ...props
+}) => (
   <div
     className={`bg-white border border-gray-200 rounded-xl overflow-hidden ${
       elevated ? "shadow-md hover:shadow-lg transition-shadow" : "shadow-sm"
     } ${className}`}
+    onClick={onClick}
+    {...props}
   >
     {children}
   </div>

@@ -70,7 +70,7 @@ const CompanyRegistration = () => {
       await api.post("/auth/users/companies/register", payload);
 
       alert("Registration Successful! You can now log in.");
-      navigate("/company/login");
+      navigate("/login");
     } catch (error) {
       setError(
         error.response?.data?.message ||

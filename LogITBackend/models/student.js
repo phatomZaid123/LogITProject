@@ -14,18 +14,28 @@ const studentSchema = new mongoose.Schema({
     required: true,
     enum: ["BSCS", "BSIT", "BSSE", "BSDS"],
   },
+
+  ojt_hours_required: {
+    type: Number,
+    required: true,
+  },
+
+  completed_program: {
+    type: Boolean,
+    default: false,
+  },
   student_batch: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Batch",
     required: true,
   },
+
   // Add company link here for when they get hired
   assigned_company: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "company",
     default: null,
   },
-
 });
 
 const Student = User.discriminator("student", studentSchema);

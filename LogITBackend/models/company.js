@@ -20,6 +20,17 @@ const companySchema = new mongoose.Schema({
   job_title: {
     type: String, // e.g., "IT Manager" or "Lead Developer"
   },
+  isSuspended: {
+    type: Boolean,
+    default: false,
+  },
+  suspendedAt: {
+    type: Date,
+  },
+  suspendedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
 });
 
 const Company = User.discriminator("company", companySchema);

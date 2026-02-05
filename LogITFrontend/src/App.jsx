@@ -1,10 +1,8 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import DeanLogin from "./pages/dean/DeanLogin.jsx";
+import UnifiedLogin from "./pages/UnifiedLogin.jsx";
 import DeanDashboard from "./pages/dean/DeanDashboard.jsx";
-import StudentLogin from "./pages/students/StudentLogin.jsx";
 import StudentDashboard from "./pages/students/StudentDashboard.jsx";
 import StudentRegistration from "./pages/students/StudentRegistration.jsx";
-import CompanyLogin from "./pages/company/CompanyLogin.jsx";
 import CompanyDashboard from "./pages/company/CompanyDashboard.jsx";
 import CompanyComplains from "./pages/dean/CompanyComplains.jsx";
 import DashboardHome from "./pages/dean/DashboardHome.jsx";
@@ -22,39 +20,33 @@ import StudentHome from "./pages/students/StudentHome.jsx";
 import CompanyEmployees from "./pages/company/CompanyInterns.jsx";
 import CompanyTasks from "./pages/company/CompanyTasks.jsx";
 import CompanyReports from "./pages/company/CompanyReports.jsx";
+import ComplainToDean from "./pages/company/ComplainToDean.jsx";
 import CompanySettings from "./pages/company/CompanySettings.jsx";
 import CompanyHome from "./pages/company/CompanyHome.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
+import { ComplaintsProvider } from "./context/ComplaintsContext.jsx";
 import RequireRole from "./components/ProtectedRoutes.jsx";
 import { Toaster } from "react-hot-toast";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import StudentProfile from "./components/Profile.jsx";
+import CompanyProfile from "./pages/dean/CompanyProfile.jsx";
 
 function App() {
   const queryClient = new QueryClient();
   const routes = createBrowserRouter([
-    //Public Routess
+    //Public Routes - All use unified login
     {
       path: "/",
-      element: <StudentLogin />,
+      element: <UnifiedLogin />,
       errorElement: <div>404 Error! Page not found!</div>,
     },
     {
-      path: "/student/login",
-      element: <StudentLogin />,
+      path: "/login",
+      element: <UnifiedLogin />,
     },
     {
       path: "/register/student",
       element: <StudentRegistration />,
-    },
-
-    {
-      path: "/dean/login",
-      element: <DeanLogin />,
-    },
-    {
-      path: "/company/login",
-      element: <CompanyLogin />,
     },
     {
       path: "/register/company",
@@ -106,6 +98,10 @@ function App() {
             {
               path: "studentprofile/:id",
               element: <StudentProfile />,
+            },
+            {
+              path: "companyprofile/:companyId",
+              element: <CompanyProfile />,
             },
           ],
         },
@@ -168,6 +164,9 @@ function App() {
             {
               path: "reports",
               element: <CompanyReports />,
+            },{
+              path: "complaints",
+              element: <ComplainToDean />,
             },
             {
               path: "settings",
@@ -192,7 +191,9 @@ function App() {
       <div className="mx-auto min-h-screen">
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <RouterProvider router={routes} />
+            <ComplaintsProvider>
+              <RouterProvider router={routes} />
+            </ComplaintsProvider>
           </AuthProvider>
         </QueryClientProvider>
         <Toaster

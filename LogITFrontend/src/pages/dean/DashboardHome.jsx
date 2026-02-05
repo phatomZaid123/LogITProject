@@ -1,3 +1,5 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -12,341 +14,346 @@ import {
   Users,
   Building2,
   Clock,
-  CheckCircle2,
-  ArrowUpRight,
-  ArrowDownRight,
+  LucideActivitySquare,
+  FileText,
+  CheckCircle,
+  AlertCircle,
+  TrendingUp,
+  Calendar,
+  BookOpen,
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import toast from "react-hot-toast";
 
 function DashboardHome() {
-  /* KPI Stats */
-  const stats = [
+  const { api } = useAuth();
+  const navigate = useNavigate();
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [pendingItems, setPendingItems] = useState([]);
+
+  // Fetch dashboard statistics
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch dashboard stats
+        const statsRes = await api.get("/dean/dashboard/stats");
+        setStats(statsRes.data);
+
+        // Fetch pending logs
+        const logsRes = await api.get("/dean/logs/pending");
+        const pendingLogs = logsRes.data.slice(0, 5).map(log => ({
+          id: log._id,
+          type: "logbook",
+          student: log.created_by?.name || "Unknown",
+          admissionNumber: log.created_by?.student_admission_number || "N/A",
+          date: new Date(log.createdAt).toLocaleDateString(),
+          weekNumber: log.weekNumber,
+          status: log.status,
+        }));
+
+        // Fetch pending timesheets
+        const timesheetsRes = await api.get("/dean/timesheets/pending");
+        const pendingTimesheets = timesheetsRes.data.slice(0, 5).map(timesheet => ({
+          id: timesheet._id,
+          type: "timesheet",
+          student: timesheet.student?.name || "Unknown",
+          admissionNumber: timesheet.student?.student_admission_number || "N/A",
+          date: new Date(timesheet.date).toLocaleDateString(),
+          hours: timesheet.totalHours,
+          status: timesheet.status,
+        }));
+
+        // Combine and sort by date
+        const combined = [...pendingLogs, ...pendingTimesheets]
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .slice(0, 8);
+
+        setPendingItems(combined);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+        toast.error("Failed to load dashboard data");
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [api]);
+
+  // KPI Stats with real data
+  const kpiStats = stats ? [
     {
-      title: "Registered Interns",
-      value: "248",
-      change: "+12%",
+      title: "Total Students",
+      value: stats.students.total,
+      subtitle: `${stats.students.active} Active`,
       icon: Users,
       color: "bg-blue-100 text-blue-600",
-      trend: "up",
+      trend: "+12%",
     },
     {
-      title: "Partner Industries",
-      value: "35",
-      change: "+5%",
+      title: "Partner Companies",
+      value: stats.companies.total,
+      subtitle: `${stats.companies.active} Active`,
       icon: Building2,
       color: "bg-green-100 text-green-600",
-      trend: "up",
+      trend: "+5%",
     },
     {
-      title: "Training Hours Logged",
-      value: "3,240",
-      change: "+8%",
+      title: "Pending Reviews",
+      value: stats.pending.total,
+      subtitle: `${stats.pending.logbooks} Logs, ${stats.pending.timesheets} Timesheets`,
       icon: Clock,
+      color: "bg-amber-100 text-amber-600",
+      highlight: stats.pending.total > 0,
+    },
+    {
+      title: "Completed OJT",
+      value: stats.students.completed,
+      subtitle: "This Batch",
+      icon: CheckCircle,
       color: "bg-purple-100 text-purple-600",
-      trend: "up",
     },
     {
-      title: "Verified Logbooks",
-      value: "1,025",
-      change: "-2%",
-      icon: CheckCircle2,
-      color: "bg-orange-100 text-orange-600",
-      trend: "down",
+      title: "Active Batch",
+      value: stats.activeBatch.session_name,
+      subtitle: stats.activeBatch.year,
+      icon: Calendar,
+      color: "bg-indigo-100 text-indigo-600",
+      isText: true,
     },
-  ];
-
-  /* Activities */
-  const recentActivities = [
-    {
-      type: "Student",
-      action: "Submitted final OJT report",
-      name: "John Smith",
-      time: "2 hours ago",
-      status: "pending",
-    },
-    {
-      type: "Company",
-      action: "Uploaded performance evaluation",
-      name: "TechCorp Ltd",
-      time: "4 hours ago",
-      status: "completed",
-    },
-    {
-      type: "Student",
-      action: "Completed required training hours",
-      name: "Sarah Johnson",
-      time: "6 hours ago",
-      status: "completed",
-    },
-    {
-      type: "Complaint",
-      action: "Policy violation reported",
-      name: "Attendance Issue",
-      time: "8 hours ago",
-      status: "urgent",
-    },
-  ];
-
-  /* Approvals */
-  const pendingApprovals = [
-    {
-      id: 1,
-      student: "Alex Chen",
-      date: "Jan 15, 2024",
-      type: "Logbook",
-      hours: 8,
-    },
-    {
-      id: 2,
-      student: "Emma Wilson",
-      date: "Jan 16, 2024",
-      type: "Evaluation",
-      hours: 8,
-    },
-    {
-      id: 3,
-      student: "Michael Brown",
-      date: "Jan 17, 2024",
-      type: "Final Report",
-      hours: 6,
-    },
-  ];
+  ] : [];
 
   return (
     <div className="space-y-8">
       {/* Welcome Section */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dean Dashboard</h1>
-
-        <p className="text-gray-600">
+      <div className=" bg-purple-600  rounded-xl p-8 text-white shadow-lg">
+        <h1 className="text-3xl font-bold mb-2">Dean Dashboard</h1>
+        <p className="text-purple-100 text-lg">
           On-the-Job Training (OJT) Program Monitoring System
         </p>
-
-        <p className="text-sm text-gray-500 mt-1">
-          Academic Year: 2024 / 2025 | 2nd Semester
+        <p className="text-sm text-purple-200 mt-2">
+          {`Academic Year: ${stats?.activeBatch.year}`}
         </p>
       </div>
 
       {/* KPI Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => {
-          const Icon = stat.icon;
-          const isPositive = stat.trend === "up";
-
-          return (
-            <Card key={index} elevated className="hover:shadow-md transition">
-              <CardContent padding="lg">
-                <div className="flex justify-between mb-4">
-                  <div className={`p-3 rounded-lg ${stat.color}`}>
-                    <Icon size={24} />
-                  </div>
-
-                  <div
-                    className={`flex items-center gap-1 text-sm font-semibold
-                    ${isPositive ? "text-green-600" : "text-red-600"}`}
-                  >
-                    {stat.change}
-
-                    {isPositive ? (
-                      <ArrowUpRight size={16} />
-                    ) : (
-                      <ArrowDownRight size={16} />
-                    )}
-                  </div>
-                </div>
-
-                <p className="text-sm text-gray-600">{stat.title}</p>
-
-                <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Card key={i} elevated className="animate-pulse">
+              <CardContent padding="sm">
+                <div className="h-32 bg-gray-200 rounded"></div>
               </CardContent>
             </Card>
-          );
-        })}
-      </div>
-
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Activities */}
-        <div className="lg:col-span-2">
-          <Card elevated>
-            <CardHeader withBorder>
-              <CardTitle>Recent Academic Activities</CardTitle>
-
-              <CardDescription>
-                Latest updates from students and partner companies
-              </CardDescription>
-            </CardHeader>
-
-            <CardContent padding="none">
-              <div className="divide-y">
-                {recentActivities.map((activity, index) => (
-                  <div key={index} className="px-6 py-4 hover:bg-gray-50">
-                    <div className="flex gap-3">
-                      <span
-                        className={`w-2.5 h-2.5 rounded-full mt-2
-                        ${
-                          activity.status === "urgent"
-                            ? "bg-red-500"
-                            : activity.status === "pending"
-                              ? "bg-amber-500"
-                              : "bg-green-500"
-                        }`}
-                      />
-
-                      <div className="flex-1">
-                        <div className="flex justify-between">
-                          <p className="font-medium">
-                            {activity.type}: {activity.action}
-                          </p>
-
-                          <span className="text-xs text-gray-500">
-                            {activity.time}
-                          </span>
-                        </div>
-
-                        <p className="text-sm text-gray-600">{activity.name}</p>
-                      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {kpiStats.map((stat, index) => {
+            const Icon = stat.icon;
+            return (
+              <Card
+                key={index}
+                elevated
+                className={`hover:shadow-lg transition-all ${
+                  stat.highlight ? "ring-2 ring-amber-400" : ""
+                }`}
+              >
+                <CardContent padding="sm" className="relative">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className={`p-3 rounded-lg ${stat.color}`}>
+                      <Icon size={24} />
                     </div>
+                   
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <p className="text-sm text-gray-600 mb-1">{stat.title}</p>
+                  <p className={`${stat.isText ? 'text-xl' : 'text-3xl'} font-bold text-gray-900 mb-1`}>
+                    {stat.value}
+                  </p>
+                  {stat.subtitle && (
+                    <p className="text-xs text-gray-500">{stat.subtitle}</p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
+      )}
 
-        {/* Summary Column */}
-        <div className="space-y-6">
-          {/* Pending */}
-          <Card elevated>
-            <CardHeader withBorder>
-              <CardTitle variant="h4">Pending Academic Reviews</CardTitle>
-            </CardHeader>
-
-            <CardContent padding="lg">
-              <div className="flex justify-between mb-3">
-                <span className="text-sm text-gray-600">Awaiting Approval</span>
-
-                <span
-                  className="bg-amber-100 text-amber-700
-                px-3 py-1 rounded-full text-sm font-semibold"
-                >
-                  {pendingApprovals.length}
-                </span>
-              </div>
-
-              <Button variant="outline" fullWidth size="sm">
-                Review Submissions
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Compliance */}
-          <Card elevated>
-            <CardHeader withBorder>
-              <CardTitle variant="h4">Program Compliance</CardTitle>
-            </CardHeader>
-
-            <CardContent padding="lg">
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span>Completion Rate</span>
-                  <span className="font-semibold">78%</span>
-                </div>
-
-                <div className="w-full h-2 bg-gray-200 rounded-full">
-                  <div
-                    className="h-2 bg-green-500 rounded-full"
-                    style={{ width: "78%" }}
-                  />
-                </div>
-
-                <div className="flex justify-between text-sm mt-3">
-                  <span>Report Submission</span>
-                  <span className="font-semibold">85%</span>
-                </div>
-
-                <div className="w-full h-2 bg-gray-200 rounded-full">
-                  <div
-                    className="h-2 bg-blue-500 rounded-full"
-                    style={{ width: "85%" }}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <QuickActionCard
+          title="Review Logbooks"
+          count={stats?.pending.logbooks || 0}
+          icon={BookOpen}
+          color="bg-purple-500"
+          onClick={() => navigate("/dean/dashboard/reports")}
+        />
+        <QuickActionCard
+          title="Review Timesheets"
+          count={stats?.pending.timesheets || 0}
+          icon={Clock}
+          color="bg-blue-500"
+          onClick={() => navigate("/dean/dashboard/reports")}
+        />
+        <QuickActionCard
+          title="View Students"
+          count={stats?.students.total || 0}
+          icon={Users}
+          color="bg-green-500"
+          onClick={() => navigate("/dean/dashboard/students")}
+        />
+        <QuickActionCard
+          title="View Companies"
+          count={stats?.companies.total || 0}
+          icon={Building2}
+          color="bg-orange-500"
+          onClick={() => navigate("/dean/dashboard/companies")}
+        />
       </div>
 
-      {/* Approval Table */}
-      <Card elevated>
-        <CardHeader withBorder>
-          <CardTitle>Pending Academic Approvals</CardTitle>
-
-          <CardDescription>
-            Review and validate student submissions
-          </CardDescription>
+      {/* Pending Approvals Table */}
+      <Card elevated className="shadow-lg">
+        <CardHeader withBorder className="bg-gray-50">
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <AlertCircle className="text-amber-500" size={24} />
+                Pending Approvals
+              </CardTitle>
+              <CardDescription>
+                Review and approve student submissions
+              </CardDescription>
+            </div>
+            {pendingItems.length > 0 && (
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => navigate("/dean/dashboard/reports")}
+              >
+                View All
+              </Button>
+            )}
+          </div>
         </CardHeader>
 
         <CardContent padding="none">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-6 py-3 text-xs font-semibold text-left">
-                    Student
-                  </th>
-
-                  <th className="px-6 py-3 text-xs font-semibold text-left">
-                    Submission Type
-                  </th>
-
-                  <th className="px-6 py-3 text-xs font-semibold text-left">
-                    Date
-                  </th>
-
-                  <th className="px-6 py-3 text-xs font-semibold text-left">
-                    Hours
-                  </th>
-
-                  <th className="px-6 py-3 text-xs font-semibold text-left">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y">
-                {pendingApprovals.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 font-medium">{item.student}</td>
-
-                    <td className="px-6 py-4 text-sm">{item.type}</td>
-
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {item.date}
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <span
-                        className="bg-blue-100 text-blue-800
-                        px-3 py-1 rounded-full text-sm"
-                      >
-                        {item.hours}h
-                      </span>
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <Button size="sm" variant="primary">
-                        Review
-                      </Button>
-                    </td>
+          {loading ? (
+            <div className="p-10 text-center animate-pulse text-gray-400">
+              Loading pending items...
+            </div>
+          ) : pendingItems.length === 0 ? (
+            <div className="p-10 text-center text-gray-500">
+              <CheckCircle className="mx-auto mb-3 text-green-500" size={48} />
+              <p className="font-medium">All caught up!</p>
+              <p className="text-sm">No pending approvals at the moment.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">
+                      Student
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">
+                      Details
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">
+                      Date
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700">
+                      Action
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {pendingItems.map((item) => (
+                    <tr key={item.id} className="hover:bg-gray-50 transition">
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${
+                            item.type === "logbook"
+                              ? "bg-purple-100 text-purple-700"
+                              : "bg-blue-100 text-blue-700"
+                          }`}
+                        >
+                          {item.type === "logbook" ? (
+                            <BookOpen size={12} />
+                          ) : (
+                            <Clock size={12} />
+                          )}
+                          {item.type === "logbook" ? "Logbook" : "Timesheet"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {item.student}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {item.admissionNumber}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {item.type === "logbook"
+                          ? `Week ${item.weekNumber || "N/A"}`
+                          : `${item.hours || 0} hours`}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {item.date}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          onClick={() =>
+                            navigate("/dean/dashboard/reports")
+                          }
+                        >
+                          Review
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
   );
 }
+
+// Quick Action Card Component
+const QuickActionCard = ({ title, count, icon: Icon, color, onClick }) => (
+  <Card
+    elevated
+    className="hover:shadow-lg transition-all cursor-pointer group"
+    onClick={onClick}
+  >
+    <CardContent padding="sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-gray-600 mb-1">{title}</p>
+          <p className="text-2xl font-bold text-gray-900">{count}</p>
+        </div>
+        <div
+          className={`p-4 rounded-lg ${color} text-white group-hover:scale-110 transition-transform`}
+        >
+          <Icon size={24} />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
 
 export default DashboardHome;

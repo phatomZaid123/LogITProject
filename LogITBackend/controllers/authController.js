@@ -66,6 +66,7 @@ const registerStudent = async (req, res) => {
       student_admission_number: admission_number,
       student_course: student_course,
       student_batch: targetBatch._id,
+      ojt_hours_required: 500, // Default value
       role: "student",
     });
 
@@ -141,6 +142,14 @@ const login = async (req, res) => {
     const user = await User.findOne({ email }).select("+password");
     if (!user) {
       return res.status(401).json({ message: "Invalid Credentials" });
+    }
+
+    // Check if company is suspended
+    if (user.role === "company" && user.isSuspended) {
+      return res.status(403).json({
+        message:
+          "Your company account has been suspended. Please contact the administrator.",
+      });
     }
 
     //compare password

@@ -38,24 +38,20 @@ const AuthProvider = ({ children }) => {
       console.log(response);
       setUser(response.data.user);
       setLoading(false);
-      return { success: true };
+      return { success: true, user: response.data.user };
     } catch (error) {
       console.error(error);
-      return { success: false };
+      const errorMessage = error.response?.data?.message || "Login failed";
+      return { success: false, error: errorMessage };
     }
   };
 
   const logout = async () => {
     try {
       await api.post("/auth/users/logout");
-      if (user?.role === "dean") {
-        window.location.href = "/dean/login";
-      } else if (user?.role === "student") {
-        window.location.href = "/student/login";
-      } else if (user?.role === "company") {
-        window.location.href = "/company/login";
-      } 
       setUser(null);
+      // Redirect to unified login for all users
+      window.location.href = "/login";
     } catch (error) {
       console.error("Logout failed", error);
     }

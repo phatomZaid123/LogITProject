@@ -78,15 +78,15 @@ function Header() {
           </div>
         </div>
       </header>
-      <div className="flex-1 p-4 bg-gray-50 text-right mr-2 ml-2">
+      <div className="flex-1 p-3 bg-gray-50 text-right mr-2 ml-2">
         <div className="flex justify-end items-baseline">
-          <h1 className="text-purple-500 text-sm md:text-5xl font-thin">Hi,</h1>
-          <span className="pl-2 text-gray-400 text-sm md:text-5xl font-thin">
+          <h1 className="text-purple-500 text-sm md:text-3xl font-thin">Hi,</h1>
+          <span className="pl-2 text-gray-400 text-sm md:text-3xl font-thin">
             {user?.name || "User"}
           </span>
         </div>
 
-        <p className="text-gray-600 text-xs">
+        <p className="text-gray-600 text-sm md:text-xs">
           Welcome back! Here's your OJT program overview.
         </p>
       </div>

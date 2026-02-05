@@ -1,7 +1,22 @@
-import { Building2, MapPin, Mail, User, Phone } from "lucide-react";
+import {
+  Building2,
+  MapPin,
+  Mail,
+  User,
+  Users,
+  Phone,
+  AlertCircle,
+} from "lucide-react";
 import Button from "./ui/Button";
 
-function CompanyList({ companies = [], loading = false }) {
+function CompanyList({
+  companies = [],
+  loading = false,
+  onSuspend,
+  onUnsuspend,
+  onViewProfile = () => {},
+  isFiltered = false,
+}) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -18,10 +33,14 @@ function CompanyList({ companies = [], loading = false }) {
       <div className="flex flex-col items-center justify-center py-16 px-4">
         <Building2 size={48} className="text-gray-300 mb-4" />
         <h3 className="text-lg font-semibold text-gray-600 mb-2">
-          No Companies Found
+          {isFiltered
+            ? "No companies match these filters"
+            : "No Companies Found"}
         </h3>
         <p className="text-gray-500 text-center">
-          There are no registered companies at the moment.
+          {isFiltered
+            ? "Try adjusting the status filter or search keywords to see other results."
+            : "There are no registered companies at the moment."}
         </p>
       </div>
     );
@@ -30,19 +49,28 @@ function CompanyList({ companies = [], loading = false }) {
   return (
     <div className="w-full space-y-6">
       {/* Grid View for larger screens, List for mobile */}
-      <div className="hidden lg:grid grid-cols-1 2xl:grid-cols-2 gap-6">
+
+      <div className="hidden lg:grid grid-cols-1 2xl:grid-cols-2  gap-6">
         {companies.map((company) => (
           <div
             key={company._id}
             className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow border border-gray-100 overflow-hidden"
           >
             {/* Card Header with company name */}
-            <div className="bg-linear-to-r from-purple-50 to-indigo-50 border-b border-gray-200 px-6 py-4">
+            <div className="bg-linear-to-r from-purple-50  to-indigo-50 border-b border-gray-200 px-6 py-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
                   <h3 className="text-lg font-bold text-gray-900">
                     {company.name || "N/A"}
                   </h3>
+                  {company.isSuspended && (
+                    <div className="flex items-center gap-1 mt-2">
+                      <AlertCircle size={16} className="text-red-600" />
+                      <span className="text-sm font-semibold text-red-600">
+                        Suspended
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="shrink-0 bg-purple-100 p-2 rounded-lg">
                   <Building2 size={20} className="text-purple-600" />
@@ -69,6 +97,17 @@ function CompanyList({ companies = [], loading = false }) {
                   <p className="text-sm font-medium text-gray-600">Location</p>
                   <p className="text-sm text-gray-900">
                     {company.company_address || "N/A"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <Users size={18} className="text-indigo-600 mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-600">
+                    Assigned Students
+                  </p>
+                  <p className="text-sm text-gray-900 font-semibold">
+                    {company.assignedStudentCount || 0}
                   </p>
                 </div>
               </div>
@@ -110,7 +149,32 @@ function CompanyList({ companies = [], loading = false }) {
                   )}
                 </div>
               </div>
-              <Button variant="outline">Suspend Comapany</Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  variant="primary"
+                  onClick={() => onViewProfile(company._id)}
+                  className="flex-1"
+                >
+                  View Profile
+                </Button>
+                {company.isSuspended ? (
+                  <Button
+                    variant="primary"
+                    onClick={() => onUnsuspend(company._id, company.name)}
+                    className="flex-1"
+                  >
+                    Unsuspend Company
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => onSuspend(company._id, company.name)}
+                    className="flex-1 border-red-300 text-red-600 hover:bg-red-50"
+                  >
+                    Suspend Company
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         ))}
@@ -124,14 +188,26 @@ function CompanyList({ companies = [], loading = false }) {
             className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden hover:shadow-md transition-shadow"
           >
             <div className="p-4 space-y-3">
-              <div className="flex items-start gap-2">
-                <Building2
-                  size={18}
-                  className="text-purple-600 mt-0.5 shrink-0"
-                />
-                <h3 className="font-bold text-gray-900 flex-1">
-                  {company.name || "N/A"}
-                </h3>
+              <div className="flex items-start gap-2 justify-between">
+                <div className="flex items-start gap-2 flex-1">
+                  <Building2
+                    size={18}
+                    className="text-purple-600 mt-0.5 shrink-0"
+                  />
+                  <div>
+                    <h3 className="font-bold text-gray-900">
+                      {company.name || "N/A"}
+                    </h3>
+                    {company.isSuspended && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <AlertCircle size={14} className="text-red-600" />
+                        <span className="text-xs font-semibold text-red-600">
+                          Suspended
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center gap-2 text-sm">
@@ -145,6 +221,13 @@ function CompanyList({ companies = [], loading = false }) {
                 <MapPin size={16} className="text-indigo-600 mt-0.5 shrink-0" />
                 <span className="text-gray-600">
                   {company.company_address || "N/A"}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 text-sm">
+                <Users size={16} className="text-indigo-600 shrink-0" />
+                <span className="text-gray-600">
+                  {company.assignedStudentCount || 0} students
                 </span>
               </div>
 
@@ -169,6 +252,26 @@ function CompanyList({ companies = [], loading = false }) {
                   </p>
                 )}
               </div>
+
+              <div className="pt-2">
+                {company.isSuspended ? (
+                  <Button
+                    variant="primary"
+                    onClick={() => onUnsuspend(company._id, company.name)}
+                    className="w-full text-sm"
+                  >
+                    Unsuspend Company
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => onSuspend(company._id, company.name)}
+                    className="w-full text-sm border-red-300 text-red-600 hover:bg-red-50"
+                  >
+                    Suspend Company
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         ))}
@@ -176,5 +279,12 @@ function CompanyList({ companies = [], loading = false }) {
     </div>
   );
 }
+<Button
+  variant="primary"
+  onClick={() => onViewProfile(company._id)}
+  className="w-full text-sm"
+>
+  View Profile
+</Button>;
 
 export default CompanyList;

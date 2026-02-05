@@ -8,6 +8,17 @@ import {
   getAllBatch,
   getStudentById,
   getAllCompany,
+  getPendingLogs,
+  reviewStudentLog,
+  getPendingTimesheets,
+  reviewTimesheet,
+  getDashboardStats,
+  getStudentRegistrationQR,
+  getCompanyRegistrationQR,
+  suspendCompany,
+  unsuspendCompany,
+  getCompaniesByStatus,
+  getCompanyProfile,
 } from "../controllers/deanController.js";
 import express from "express";
 
@@ -22,12 +33,63 @@ router.post("/createStudent", protect, authorize("dean"), createStudent);
 router.get("/getAllBatch", protect, authorize("dean"), getAllBatch);
 router.get("/getAllStudents", protect, authorize("dean"), getAllStudents);
 router.get("/getAllCompany", protect, authorize("dean"), getAllCompany);
+router.get("/dashboard/stats", protect, authorize("dean"), getDashboardStats);
 router.get(
-  "/getStudentByBatch/:batchId",
+  "/companies/status",
+  protect,
+  authorize("dean"),
+  getCompaniesByStatus,
+);
+router.get(
+  "/company/:companyId/profile",
+  protect,
+  authorize("dean"),
+  getCompanyProfile,
+);
+router.put(
+  "/company/:companyId/suspend",
+  protect,
+  authorize("dean"),
+  suspendCompany,
+);
+router.put(
+  "/company/:companyId/unsuspend",
+  protect,
+  authorize("dean"),
+  unsuspendCompany,
+);
+router.get(
+  "/registration/qr",
+  protect,
+  authorize("dean"),
+  getStudentRegistrationQR,
+);
+router.get(
+  "/company/registration/qr",
+  protect,
+  authorize("dean"),
+  getCompanyRegistrationQR,
+);
+router.get(
+  "/students/batch/:batchId",
   protect,
   authorize("dean"),
   filterStudentsByBatch,
 );
 router.get("/student/:studentId", protect, authorize("dean"), getStudentById);
+router.get("/logs/pending", protect, authorize("dean"), getPendingLogs);
+router.put("/logs/:id/review", protect, authorize("dean"), reviewStudentLog);
+router.get(
+  "/timesheets/pending",
+  protect,
+  authorize("dean"),
+  getPendingTimesheets,
+);
+router.put(
+  "/timesheets/:id/review",
+  protect,
+  authorize("dean"),
+  reviewTimesheet,
+);
 
 export default router;
