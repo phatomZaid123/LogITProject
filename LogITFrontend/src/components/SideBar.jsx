@@ -46,6 +46,11 @@ function SideBar({ children }) {
         path: "/dean/dashboard/companies",
         icon: Building2,
       },
+      {
+        label: "Alumini",
+        path: "/dean/dashboard/alumini",
+        icon: Users,
+      },
       { label: "Reports", path: "/dean/dashboard/reports", icon: BarChart3 },
       {
         label: "Complaints",
@@ -59,8 +64,16 @@ function SideBar({ children }) {
       { label: "Dashboard", path: "/company/dashboard", icon: Home },
       { label: "Interns", path: "/company/dashboard/interns", icon: Users },
       { label: "Tasks", path: "/company/dashboard/tasks", icon: CheckCircle2 },
-      { label: "Intern Reports", path: "/company/dashboard/reports", icon: BarChart3 },
-      {label: "Complaints", path: "/company/dashboard/complaints", icon: AlertCircle},
+      {
+        label: "Intern Reports",
+        path: "/company/dashboard/reports",
+        icon: BarChart3,
+      },
+      {
+        label: "Complaints",
+        path: "/company/dashboard/complaints",
+        icon: AlertCircle,
+      },
       {
         label: "Settings",
         path: "/company/dashboard/settings",

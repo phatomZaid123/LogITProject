@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Inbox, Send, StickyNote } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Inbox, Send } from "lucide-react";
 import toast from "react-hot-toast";
 import Button from "../../components/ui/Button";
 import {
@@ -10,24 +10,15 @@ import {
   CardTitle,
 } from "../../components/ui/Card";
 import { useAuth } from "../../context/AuthContext";
-import { useComplaints } from "../../context/ComplaintsContext";
 
 const statusPalette = {
-  "awaiting-dean": {
+  open: {
     label: "Needs action",
     className: "bg-amber-100 text-amber-700",
   },
-  "in-progress": {
-    label: "In progress",
-    className: "bg-blue-100 text-blue-700",
-  },
-  "awaiting-company": {
+  responded: {
     label: "Dean replied",
     className: "bg-sky-100 text-sky-700",
-  },
-  resolved: {
-    label: "Resolved",
-    className: "bg-emerald-100 text-emerald-700",
   },
 };
 
@@ -42,60 +33,93 @@ const formatDateTime = (value) => {
 };
 
 function CompanyComplains() {
-  const { user } = useAuth();
-  const { threads, addMessage } = useComplaints();
-  const [selectedThreadId, setSelectedThreadId] = useState(
-    threads[0]?.id || null,
-  );
+  const { user, api } = useAuth();
+  const [complaints, setComplaints] = useState([]);
+  const [selectedComplaintId, setSelectedComplaintId] = useState(null);
   const [deanNote, setDeanNote] = useState("");
+  const [isFetching, setIsFetching] = useState(false);
+  const [isReplying, setIsReplying] = useState(false);
+
+  const loadComplaints = useCallback(async () => {
+    if (!api) return;
+    setIsFetching(true);
+    try {
+      const response = await api.get("/complaints");
+      setComplaints(response.data?.complaints || []);
+    } catch (error) {
+      console.error("Unable to fetch complaints", error);
+      toast.error("Unable to load complaints right now.");
+    } finally {
+      setIsFetching(false);
+    }
+  }, [api]);
 
   useEffect(() => {
-    if (!threads.length) {
-      setSelectedThreadId(null);
-      return;
+    if (user?.role === "dean") {
+      loadComplaints();
     }
+  }, [loadComplaints, user]);
 
-    if (!selectedThreadId) {
-      setSelectedThreadId(threads[0].id);
-      return;
-    }
-
-    const exists = threads.some((thread) => thread.id === selectedThreadId);
-    if (!exists) {
-      setSelectedThreadId(threads[0].id);
-    }
-  }, [threads, selectedThreadId]);
-
-  const orderedThreads = useMemo(() => {
-    return [...threads].sort(
+  const orderedComplaints = useMemo(() => {
+    return [...complaints].sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
-  }, [threads]);
+  }, [complaints]);
 
-  const selectedThread = useMemo(() => {
+  useEffect(() => {
+    if (!orderedComplaints.length) {
+      setSelectedComplaintId(null);
+      return;
+    }
+
+    if (!selectedComplaintId) {
+      setSelectedComplaintId(orderedComplaints[0]._id);
+      return;
+    }
+
+    const stillExists = orderedComplaints.some(
+      (complaint) => complaint._id === selectedComplaintId,
+    );
+
+    if (!stillExists) {
+      setSelectedComplaintId(orderedComplaints[0]._id);
+    }
+  }, [orderedComplaints, selectedComplaintId]);
+
+  const selectedComplaint = useMemo(() => {
+    if (!selectedComplaintId) return orderedComplaints[0] || null;
     return (
-      orderedThreads.find((thread) => thread.id === selectedThreadId) ||
-      orderedThreads[0] ||
+      orderedComplaints.find(
+        (complaint) => complaint._id === selectedComplaintId,
+      ) ||
+      orderedComplaints[0] ||
       null
     );
-  }, [orderedThreads, selectedThreadId]);
+  }, [orderedComplaints, selectedComplaintId]);
 
-  const handleAcknowledge = (event) => {
+  const handleAcknowledge = async (event) => {
     event.preventDefault();
-    if (!selectedThread) return;
+    if (!selectedComplaint) return;
 
     const messageBody =
       deanNote.trim() || "Complaint acknowledged. We'll keep you posted.";
 
-    addMessage(selectedThread.id, {
-      authorRole: "dean",
-      authorName: user?.name || "Dean",
-      body: messageBody,
-    });
-
-    toast.success("Acknowledgement sent to the company.");
-    setDeanNote("");
+    setIsReplying(true);
+    try {
+      await api.post(`/complaints/${selectedComplaint._id}/reply`, {
+        body: messageBody,
+      });
+      toast.success("Acknowledgement sent to the company.");
+      setDeanNote("");
+      await loadComplaints();
+    } catch (error) {
+      console.error("Reply to complaint failed", error);
+      const message = error.response?.data?.message || "Unable to send reply.";
+      toast.error(message);
+    } finally {
+      setIsReplying(false);
+    }
   };
 
   return (
@@ -114,49 +138,56 @@ function CompanyComplains() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {orderedThreads.length === 0 && (
+          {isFetching && (
+            <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
+              Loading complaints...
+            </div>
+          )}
+
+          {!isFetching && orderedComplaints.length === 0 && (
             <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
               No complaints have been submitted yet.
             </div>
           )}
 
-          {orderedThreads.map((thread) => {
-            const token = statusPalette[thread.status] || {
-              label: thread.status,
-              className: "bg-slate-100 text-slate-600",
-            };
+          {!isFetching &&
+            orderedComplaints.map((complaint) => {
+              const token = statusPalette[complaint.status] || {
+                label: complaint.status,
+                className: "bg-slate-100 text-slate-600",
+              };
 
-            return (
-              <button
-                type="button"
-                key={thread.id}
-                onClick={() => setSelectedThreadId(thread.id)}
-                className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                  selectedThread?.id === thread.id
-                    ? "border-purple-500 bg-purple-50"
-                    : "border-slate-200 hover:border-purple-300"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3 text-sm font-semibold text-slate-900">
-                  <span>{thread.subject}</span>
-                  <span
-                    className={`rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-wide ${token.className}`}
-                  >
-                    {token.label}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-slate-500">
-                  {thread.company?.name} • Logged{" "}
-                  {formatDateTime(thread.createdAt)}
-                </p>
-              </button>
-            );
-          })}
+              return (
+                <button
+                  type="button"
+                  key={complaint._id}
+                  onClick={() => setSelectedComplaintId(complaint._id)}
+                  className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                    selectedComplaint?._id === complaint._id
+                      ? "border-purple-500 bg-purple-50"
+                      : "border-slate-200 hover:border-purple-300"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3 text-sm font-semibold text-slate-900">
+                    <span>{complaint.subject}</span>
+                    <span
+                      className={`rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-wide ${token.className}`}
+                    >
+                      {token.label}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {complaint.companyName} • Logged{" "}
+                    {formatDateTime(complaint.createdAt)}
+                  </p>
+                </button>
+              );
+            })}
         </CardContent>
       </Card>
 
       <div>
-        {selectedThread ? (
+        {selectedComplaint ? (
           <Card className="border-slate-200 shadow-2xl">
             <CardHeader className="border-b border-slate-100">
               <div className="flex flex-wrap items-start justify-between gap-4">
@@ -164,16 +195,17 @@ function CompanyComplains() {
                   <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
                     Complaint
                   </p>
-                  <CardTitle className="text-2xl mt-1">
-                    {selectedThread.subject}
+                  <CardTitle className="mt-1 text-2xl">
+                    {selectedComplaint.subject}
                   </CardTitle>
                   <CardDescription>
-                    {selectedThread.company?.name} • {selectedThread.category}
+                    {selectedComplaint.companyName} •{" "}
+                    {selectedComplaint.category}
                   </CardDescription>
                 </div>
                 <div className="text-right text-xs text-slate-500">
-                  <p>Created {formatDateTime(selectedThread.createdAt)}</p>
-                  <p>Updated {formatDateTime(selectedThread.updatedAt)}</p>
+                  <p>Created {formatDateTime(selectedComplaint.createdAt)}</p>
+                  <p>Updated {formatDateTime(selectedComplaint.updatedAt)}</p>
                 </div>
               </div>
             </CardHeader>
@@ -181,16 +213,16 @@ function CompanyComplains() {
             <CardContent className="space-y-6">
               <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
                 <p className="font-semibold text-slate-800">Company contact</p>
-                <p>{selectedThread.company?.contact}</p>
+                <p>{selectedComplaint.companyContactName}</p>
                 <p className="text-xs text-slate-500">
-                  {selectedThread.company?.email}
+                  {selectedComplaint.companyEmail}
                 </p>
               </div>
 
               <div className="space-y-3">
-                {selectedThread.messages?.map((message) => (
+                {selectedComplaint.messages?.map((message) => (
                   <div
-                    key={message.id}
+                    key={message._id}
                     className={`rounded-2xl border px-4 py-3 text-sm leading-relaxed ${
                       message.authorRole === "company"
                         ? "border-slate-200 bg-white"
@@ -201,21 +233,9 @@ function CompanyComplains() {
                       <span className="font-semibold text-slate-700">
                         {message.authorName}
                       </span>
-                      <span>{formatDateTime(message.timestamp)}</span>
+                      <span>{formatDateTime(message.createdAt)}</span>
                     </div>
                     <p className="mt-2 text-slate-800">{message.body}</p>
-                    {message.attachments?.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-                        {message.attachments.map((file) => (
-                          <span
-                            key={file.name}
-                            className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 px-2 py-1"
-                          >
-                            <StickyNote size={12} /> {file.name}
-                          </span>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
@@ -238,9 +258,13 @@ function CompanyComplains() {
                   <span>
                     The company receives this reply as an acknowledgement.
                   </span>
-                  <Button type="submit" className="flex items-center gap-2">
+                  <Button
+                    type="submit"
+                    className="flex items-center gap-2"
+                    isLoading={isReplying}
+                  >
                     Send acknowledgement
-                    <Send size={16} />
+                    {!isReplying && <Send size={16} />}
                   </Button>
                 </div>
               </form>
@@ -255,4 +279,5 @@ function CompanyComplains() {
     </div>
   );
 }
+
 export default CompanyComplains;

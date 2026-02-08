@@ -9,7 +9,8 @@ import connectDB from "./config/configDB.js";
 import deanRoutes from "./routes/deanRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import companyRoutes from "./routes/companyRoutes.js";
-import studentRoutes from "./routes/studentRoutes.js"
+import studentRoutes from "./routes/studentRoutes.js";
+import complaintRoutes from "./routes/complaintRoutes.js";
 // Load environment variables
 dotenv.config();
 
@@ -38,10 +39,12 @@ app.use("/api/auth/users", authRoutes);
 //Dean Routes
 app.use("/api/dean", deanRoutes);
 
-//Student Routes 
+//Student Routes
 app.use("/api/student", studentRoutes);
 //Company Routes
 app.use("/api/company", companyRoutes);
+// Complaint Routes
+app.use("/api/complaints", complaintRoutes);
 // Connect to the database then Start server
 connectDB().then(() => {
   app.listen(PORT, () => {

@@ -18,12 +18,14 @@ function StudentList() {
   const [addBatchOpen, setAddBatchOpen] = useState(false);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrData, setQrData] = useState(null);
-  const [selectedBatchId, setSelectedBatchId] = useState("");
+  const [selectedCourse, setSelectedCourse] = useState("");
   const [modalType, setModalType] = useState("");
   const [students, setStudents] = useState([]);
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const courseOptions = ["BSCS", "BSIT", "BSSE", "BSDS"];
 
   const { api } = useAuth();
 
@@ -41,18 +43,17 @@ function StudentList() {
   });
 
   // Fetch students based on selected batch
-  const fetchStudents = async (batchId) => {
+  const fetchStudents = async (course) => {
     try {
       setLoading(true);
 
-      if (batchId) {
-        // Fetch students for specific batch
-        const studentsRes = await api.get(`/dean/students/batch/${batchId}`);
+      if (course) {
+        const studentsRes = await api.get(`/dean/students/course/${course}`);
         console.log("Students response from backend:", studentsRes.data);
         const studentsList = studentsRes.data || [];
         setStudents(studentsList);
       } else {
-        // Fetch all students when "All Batches" is selected
+        // Fetch all students when "All Courses" is selected
         const studentsRes = await api.get("/dean/getAllStudents");
         console.log("Students response from backend:", studentsRes.data);
         const studentsList = studentsRes.data?.students || [];
@@ -78,18 +79,7 @@ function StudentList() {
         const batchesList = batchRes.data || [];
         setBatches(batchesList);
 
-        // Find and set the active batch as the default selected batch
-        const activeBatch = batchesList.find(
-          (batch) => batch.isActive === true,
-        );
-        if (activeBatch) {
-          setSelectedBatchId(activeBatch._id);
-          // Fetch only students from active batch initially
-          await fetchStudents(activeBatch._id);
-        } else {
-          // If no active batch, fetch all students
-          await fetchStudents("");
-        }
+        await fetchStudents("");
       } catch (error) {
         console.error("Error fetching data from backend:", error);
         setLoading(false);
@@ -168,12 +158,13 @@ function StudentList() {
           <Button
             variant="outline"
             onClick={() => {
-              setModalType("student");
+              setModalType("company");
               setAddBatchOpen(true);
             }}
             className="flex items-center gap-2 md:w-auto"
           >
-            <Plus size={20} /> Add Student
+            <Plus size={20} />
+            Add Company
           </Button>
           <Button
             variant="outline"
@@ -207,9 +198,9 @@ function StudentList() {
         >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <CardTitle className="text-2xl mb-1">Students List</CardTitle>
+              <CardTitle className="text-2xl mb-1">Students List {}</CardTitle>
               <CardDescription className="text-gray-600">
-                {searchQuery || selectedBatchId ? (
+                {searchQuery || selectedCourse ? (
                   <>
                     Showing{" "}
                     <span className="font-semibold text-gray-900">
@@ -234,23 +225,23 @@ function StudentList() {
             </div>
             <div className="md:w-64">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Filter by Batch
+                Filter by Course
               </label>
               <select
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white shadow-sm"
-                name="batch"
-                id="batch"
+                name="course"
+                id="course"
                 onChange={(e) => {
-                  const newBatchId = e.target.value;
-                  setSelectedBatchId(newBatchId);
-                  fetchStudents(newBatchId);
+                  const newCourse = e.target.value;
+                  setSelectedCourse(newCourse);
+                  fetchStudents(newCourse);
                 }}
-                value={selectedBatchId}
+                value={selectedCourse}
               >
-                <option value="">All Batches</option>
-                {batches.map((batch) => (
-                  <option key={batch._id} value={batch._id}>
-                    {batch.session_name}
+                <option value="">All Courses</option>
+                {courseOptions.map((course) => (
+                  <option key={course} value={course}>
+                    {course}
                   </option>
                 ))}
               </select>
@@ -260,7 +251,7 @@ function StudentList() {
         <CardContent padding="none" className="bg-white">
           <StudentListComponent
             students={filteredStudents}
-            selectedBatchId={selectedBatchId}
+            selectedCourse={selectedCourse}
             searchQuery={searchQuery}
             loading={loading}
           />
@@ -271,7 +262,13 @@ function StudentList() {
       {addBatchOpen && (
         <ModalForm
           onClose={() => setAddBatchOpen(false)}
-          title={modalType === "batch" ? "Create Batch" : "Add Student"}
+          title={
+            modalType === "batch"
+              ? "Create Batch"
+              : modalType === "company"
+                ? "Add Company"
+                : "Add Student"
+          }
           batches={batches}
           onBatchCreated={handleBatchCreated}
         />

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ClipboardList, Send } from "lucide-react";
 import toast from "react-hot-toast";
 import Button from "../../components/ui/Button";
@@ -10,7 +10,6 @@ import {
   CardTitle,
 } from "../../components/ui/Card";
 import { useAuth } from "../../context/AuthContext";
-import { useComplaints } from "../../context/ComplaintsContext";
 
 const categories = [
   "Timesheet",
@@ -21,24 +20,19 @@ const categories = [
 ];
 
 const statusTokens = {
-  "awaiting-dean": {
+  open: {
     label: "Waiting on dean",
     className: "bg-amber-100 text-amber-700",
   },
-  "awaiting-company": {
+  responded: {
     label: "Dean replied",
     className: "bg-sky-100 text-sky-700",
-  },
-  resolved: {
-    label: "Resolved",
-    className: "bg-emerald-100 text-emerald-700",
   },
 };
 
 const createBlankComposer = () => ({
   subject: "",
   category: categories[0],
-  priority: "medium",
   details: "",
 });
 
@@ -53,27 +47,58 @@ const formatDateTime = (value) => {
 };
 
 function ComplainToDean() {
-  const { user } = useAuth();
-  const { threads, createComplaint } = useComplaints();
+  const { user, api } = useAuth();
   const [composer, setComposer] = useState(createBlankComposer);
+  const [complaints, setComplaints] = useState([]);
+  const [isFetching, setIsFetching] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedComplaintId, setSelectedComplaintId] = useState(null);
 
-  const companyThreads = useMemo(() => {
-    if (user?.role !== "company") return threads;
-    return threads.filter((thread) => {
-      if (!user) return true;
-      return (
-        thread.company?.id === user?._id ||
-        thread.company?.name === user?.company_name ||
-        thread.company?.email === user?.email
-      );
-    });
-  }, [threads, user]);
+  const loadComplaints = useCallback(async () => {
+    if (!api) return;
+    setIsFetching(true);
+    try {
+      const response = await api.get("/complaints/mine");
+      setComplaints(response.data?.complaints || []);
+    } catch (error) {
+      console.error("Unable to load complaints", error);
+      toast.error("Unable to load complaints right now.");
+    } finally {
+      setIsFetching(false);
+    }
+  }, [api]);
+
+  useEffect(() => {
+    if (user?.role === "company") {
+      loadComplaints();
+    }
+  }, [loadComplaints, user]);
+
+  useEffect(() => {
+    if (!complaints.length) {
+      setSelectedComplaintId(null);
+      return;
+    }
+
+    if (!selectedComplaintId) {
+      setSelectedComplaintId(complaints[0]._id);
+      return;
+    }
+
+    const stillExists = complaints.some(
+      (complaint) => complaint._id === selectedComplaintId,
+    );
+
+    if (!stillExists) {
+      setSelectedComplaintId(complaints[0]._id);
+    }
+  }, [complaints, selectedComplaintId]);
 
   const handleComposerChange = (field, value) => {
     setComposer((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (!composer.subject.trim() || !composer.details.trim()) {
@@ -81,25 +106,45 @@ function ComplainToDean() {
       return;
     }
 
-    const companyInfo = {
-      id: user?._id || "company-draft",
-      name: user?.company_name || user?.name || "Company",
-      contact: user?.name || user?.company_name || "Company Representative",
-      email: user?.email,
-    };
+    setIsSubmitting(true);
+    try {
+      const response = await api.post("/complaints", {
+        subject: composer.subject.trim(),
+        details: composer.details.trim(),
+        category: composer.category,
+      });
 
-    createComplaint({
-      subject: composer.subject.trim(),
-      details: composer.details.trim(),
-      category: composer.category,
-      priority: composer.priority,
-      channel: "Portal",
-      company: companyInfo,
-    });
-
-    toast.success("Complaint submitted to the dean desk.");
-    setComposer(createBlankComposer());
+      toast.success("Complaint submitted to the dean desk.");
+      setComplaints((prev) => [response.data.complaint, ...prev]);
+      setSelectedComplaintId(response.data.complaint._id);
+      setComposer(createBlankComposer());
+    } catch (error) {
+      console.error("Submit complaint failed", error);
+      const message =
+        error.response?.data?.message || "Unable to submit complaint.";
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const displayedComplaints = useMemo(() => {
+    return [...complaints].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  }, [complaints]);
+
+  const selectedComplaint = useMemo(() => {
+    if (!selectedComplaintId) return displayedComplaints[0] || null;
+    return (
+      displayedComplaints.find(
+        (complaint) => complaint._id === selectedComplaintId,
+      ) ||
+      displayedComplaints[0] ||
+      null
+    );
+  }, [displayedComplaints, selectedComplaintId]);
 
   return (
     <div className="space-y-6" style={{ fontFamily: "var(--logit-sans)" }}>
@@ -129,42 +174,23 @@ function ComplainToDean() {
               />
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="text-sm font-medium text-slate-600">
-                  Category
-                </label>
-                <select
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
-                  value={composer.category}
-                  onChange={(event) =>
-                    handleComposerChange("category", event.target.value)
-                  }
-                >
-                  {categories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-slate-600">
-                  Priority
-                </label>
-                <select
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
-                  value={composer.priority}
-                  onChange={(event) =>
-                    handleComposerChange("priority", event.target.value)
-                  }
-                >
-                  <option value="high">High</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
-                </select>
-              </div>
+            <div>
+              <label className="text-sm font-medium text-slate-600">
+                Category
+              </label>
+              <select
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+                value={composer.category}
+                onChange={(event) =>
+                  handleComposerChange("category", event.target.value)
+                }
+              >
+                {categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -184,9 +210,13 @@ function ComplainToDean() {
 
             <div className="flex items-center justify-between text-xs text-slate-500">
               <span>The dean office receives an email instantly.</span>
-              <Button type="submit" className="flex items-center gap-2">
+              <Button
+                type="submit"
+                className="flex items-center gap-2"
+                isLoading={isSubmitting}
+              >
                 Submit complaint
-                <Send size={16} />
+                {!isSubmitting && <Send size={16} />}
               </Button>
             </div>
           </form>
@@ -201,46 +231,127 @@ function ComplainToDean() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {companyThreads.length === 0 && (
+          {isFetching && (
+            <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
+              Loading complaints...
+            </div>
+          )}
+
+          {!isFetching && displayedComplaints.length === 0 && (
             <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
               No complaints yet. Submit one using the form above.
             </div>
           )}
 
-          {companyThreads.map((thread) => {
-            const token = statusTokens[thread.status] || {
-              label: thread.status,
-              className: "bg-slate-100 text-slate-600",
-            };
-            const firstMessage = thread.messages?.[0]?.body || "";
+          {!isFetching &&
+            displayedComplaints.map((complaint) => {
+              const token = statusTokens[complaint.status] || {
+                label: complaint.status,
+                className: "bg-slate-100 text-slate-600",
+              };
+              const firstMessage =
+                complaint.messages?.[0]?.body || complaint.details;
 
-            return (
-              <div
-                key={thread.id}
-                className="rounded-2xl border border-slate-200 px-4 py-3"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <p className="font-semibold text-slate-900">
-                    {thread.subject}
+              return (
+                <button
+                  type="button"
+                  key={complaint._id}
+                  onClick={() => setSelectedComplaintId(complaint._id)}
+                  className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                    selectedComplaint?._id === complaint._id
+                      ? "border-purple-500 bg-purple-50"
+                      : "border-slate-200 hover:border-purple-300"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="font-semibold text-slate-900">
+                      {complaint.subject}
+                    </p>
+                    <span
+                      className={`rounded-full px-3 py-1 text-[11px] font-medium ${token.className}`}
+                    >
+                      {token.label}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {complaint.category} • Logged{" "}
+                    {formatDateTime(complaint.createdAt)}
                   </p>
-                  <span
-                    className={`rounded-full px-3 py-1 text-[11px] font-medium ${token.className}`}
-                  >
-                    {token.label}
-                  </span>
+                  <p className="mt-2 text-sm text-slate-600">
+                    {firstMessage?.length > 140
+                      ? `${firstMessage.slice(0, 140)}…`
+                      : firstMessage}
+                  </p>
+                </button>
+              );
+            })}
+        </CardContent>
+      </Card>
+
+      <Card className="border-slate-200 shadow-lg">
+        {selectedComplaint ? (
+          <>
+            <CardHeader className="border-b border-slate-100">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                    Complaint thread
+                  </p>
+                  <CardTitle className="mt-1 text-2xl">
+                    {selectedComplaint.subject}
+                  </CardTitle>
+                  <CardDescription>
+                    {selectedComplaint.category} • Opened{" "}
+                    {formatDateTime(selectedComplaint.createdAt)}
+                  </CardDescription>
                 </div>
-                <p className="mt-1 text-xs text-slate-500">
-                  {thread.category} • Logged {formatDateTime(thread.createdAt)}
+                <div className="text-right text-xs text-slate-500">
+                  <p>Status</p>
+                  <p className="font-semibold text-slate-700">
+                    {statusTokens[selectedComplaint.status]?.label ||
+                      selectedComplaint.status}
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
+                <p className="font-semibold text-slate-800">
+                  Dean desk replies
                 </p>
-                <p className="mt-2 text-sm text-slate-600">
-                  {firstMessage.length > 140
-                    ? `${firstMessage.slice(0, 140)}…`
-                    : firstMessage}
+                <p className="text-xs text-slate-500">
+                  You&apos;ll see every message you and the dean exchange below.
                 </p>
               </div>
-            );
-          })}
-        </CardContent>
+              <div className="space-y-3">
+                {selectedComplaint.messages?.map((message) => (
+                  <div
+                    key={message._id}
+                    className={`rounded-2xl border px-4 py-3 text-sm leading-relaxed ${
+                      message.authorRole === "company"
+                        ? "border-slate-200 bg-white"
+                        : "border-indigo-100 bg-indigo-50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span className="font-semibold text-slate-700">
+                        {message.authorName}
+                      </span>
+                      <span>{formatDateTime(message.createdAt)}</span>
+                    </div>
+                    <p className="mt-2 text-slate-800">{message.body}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </>
+        ) : (
+          <CardContent>
+            <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
+              Submit a complaint to see the message history here.
+            </div>
+          </CardContent>
+        )}
       </Card>
     </div>
   );

@@ -19,6 +19,9 @@ import {
   unsuspendCompany,
   getCompaniesByStatus,
   getCompanyProfile,
+  filterStudentsByCourse,
+  getAlumniBatches,
+  getAlumniBatchStudents,
 } from "../controllers/deanController.js";
 import express from "express";
 
@@ -75,6 +78,24 @@ router.get(
   protect,
   authorize("dean"),
   filterStudentsByBatch,
+);
+router.get(
+  "/students/course/:course",
+  protect,
+  authorize("dean"),
+  filterStudentsByCourse,
+);
+router.get(
+  "/alumni/batches",
+  protect,
+  authorize("dean"),
+  getAlumniBatches,
+);
+router.get(
+  "/alumni/batch/:batchId",
+  protect,
+  authorize("dean"),
+  getAlumniBatchStudents,
 );
 router.get("/student/:studentId", protect, authorize("dean"), getStudentById);
 router.get("/logs/pending", protect, authorize("dean"), getPendingLogs);

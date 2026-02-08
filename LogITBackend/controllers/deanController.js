@@ -102,7 +102,7 @@ const createBatch = async (req, res) => {
 
     await Batch.updateMany({}, { isActive: false });
 
-    const studentInviteToken = crypto.randomUUID(); 
+    const studentInviteToken = crypto.randomUUID();
     const companyInviteToken = crypto.randomUUID();
 
     const newBatch = new Batch({
@@ -115,7 +115,6 @@ const createBatch = async (req, res) => {
     });
 
     await newBatch.save();
-
 
     res.status(201).json({
       message: `Batch ${batchName} created successfully`,
@@ -169,6 +168,45 @@ const filterStudentsByBatch = async (req, res) => {
       .lean();
 
     // Flatten the student response to use string names
+    const flattenedStudents = students.map((student) => {
+      const companyName = student.assigned_company?.name || "Unassigned";
+      const companyId = student.assigned_company?._id || null;
+      const batchName = student.student_batch?.session_name || "N/A";
+      const batchId = student.student_batch?._id || null;
+
+      return {
+        ...student,
+        assigned_company: companyName,
+        assigned_company_id: companyId,
+        student_batch: batchName,
+        student_batch_id: batchId,
+      };
+    });
+
+    const studentsWithHours = await attachStudentHourStats(flattenedStudents);
+
+    res.status(200).json(studentsWithHours);
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error });
+  }
+};
+
+const filterStudentsByCourse = async (req, res) => {
+  const { course } = req.params;
+
+  try {
+    const normalizedCourse = course?.toUpperCase().trim();
+
+    if (!normalizedCourse) {
+      return res.status(400).json({ message: "Course is required" });
+    }
+
+    const students = await Student.find({ student_course: normalizedCourse })
+      .select("-password -createdAt -updatedAt -__v -role")
+      .populate("assigned_company", "name")
+      .populate("student_batch", "session_name")
+      .lean();
+
     const flattenedStudents = students.map((student) => {
       const companyName = student.assigned_company?.name || "Unassigned";
       const companyId = student.assigned_company?._id || null;
@@ -255,8 +293,13 @@ const createStudent = async (req, res) => {
 
 const getAllStudents = async (req, res) => {
   try {
+    const activeBatch = await Batch.findOne({ isActive: true }).select("_id");
+    if (!activeBatch) {
+      return res.status(200).json({ students: [] });
+    }
+
     // Fetch Students with populated names
-    const students = await Student.find({})
+    const students = await Student.find({ student_batch: activeBatch._id })
       .select("-password -createdAt -updatedAt -__v -role -company")
       .populate("assigned_company", "name")
       .populate("student_batch", "session_name")
@@ -305,6 +348,93 @@ const getAllCompany = async (req, res) => {
     });
   } catch (error) {
     console.error("Fetch Error:", error);
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
+const getAlumniBatches = async (req, res) => {
+  try {
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
+    const skip = (page - 1) * limit;
+
+    const query = { isActive: false };
+    const total = await Batch.countDocuments(query);
+
+    const batches = await Batch.find(query)
+      .select("session_name year isActive createdAt")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    res.status(200).json({
+      batches,
+      page,
+      total,
+      totalPages,
+      hasMore: page < totalPages,
+    });
+  } catch (error) {
+    console.error("Alumni batches error:", error);
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
+const getAlumniBatchStudents = async (req, res) => {
+  try {
+    const { batchId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(batchId)) {
+      return res.status(400).json({ message: "Invalid batch ID format" });
+    }
+
+    const batch = await Batch.findById(batchId)
+      .select("session_name year isActive createdAt")
+      .lean();
+
+    if (!batch) {
+      return res.status(404).json({ message: "Batch not found" });
+    }
+
+    const students = await Student.find({ student_batch: batchId })
+      .select(
+        "name email student_admission_number student_course assigned_company student_batch ojt_hours_required completed_program",
+      )
+      .populate("assigned_company", "name")
+      .populate("student_batch", "session_name year")
+      .lean();
+
+    const flattenedStudents = students.map((student) => {
+      const companyName = student.assigned_company?.name || "Unassigned";
+      const companyId = student.assigned_company?._id || null;
+      const batchName = student.student_batch?.session_name || "N/A";
+      const batchDocId = student.student_batch?._id || null;
+
+      return {
+        ...student,
+        assigned_company: companyName,
+        assigned_company_id: companyId,
+        student_batch: batchName,
+        student_batch_id: batchDocId,
+      };
+    });
+
+    const studentsWithHours = await attachStudentHourStats(flattenedStudents);
+
+    const alumniStudents = studentsWithHours.map((student) => ({
+      ...student,
+      approved_hours: Number(student.ojt_hours_completed || 0),
+    }));
+
+    res.status(200).json({
+      batch,
+      students: alumniStudents,
+    });
+  } catch (error) {
+    console.error("Alumni batch students error:", error);
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
@@ -420,7 +550,7 @@ const getStudentById = async (req, res) => {
     const student = await Student.findById(studentId)
       .select("-password -createdAt -updatedAt -__v -role")
       .populate("student_batch", "session_name year")
-      .populate("assigned_company", "name address"); 
+      .populate("assigned_company", "name address");
 
     if (!student) {
       return res.status(404).json({ message: "Student not found" });
@@ -562,55 +692,104 @@ const getDashboardStats = async (req, res) => {
       "session_name year",
     );
 
-    // Get total students
-    const totalStudents = await Student.countDocuments();
+    if (!activeBatch) {
+      return res.status(200).json({
+        activeBatch: {
+          session_name: "No Active Batch",
+          year: "N/A",
+        },
+        students: {
+          total: 0,
+          active: 0,
+          unassigned: 0,
+          completed: 0,
+        },
+        companies: {
+          total: 0,
+          active: 0,
+        },
+        pending: {
+          logbooks: 0,
+          timesheets: 0,
+          total: 0,
+        },
+        recentActivity: {
+          logs: [],
+          timesheets: [],
+        },
+      });
+    }
 
-    // Get students by status (assuming you have an internship_status field)
-    const activeStudents = await Student.countDocuments({
-      assigned_company: { $exists: true, $ne: null },
-    });
+    const batchStudents = await Student.find({
+      student_batch: activeBatch._id,
+    })
+      .select("_id assigned_company completed_program")
+      .lean();
 
-    const completedStudents = totalStudents - activeStudents; // Simplified logic
+    const studentIds = batchStudents.map((student) => student._id);
+    const totalStudents = batchStudents.length;
+    const activeStudents = batchStudents.filter(
+      (student) => student.assigned_company,
+    ).length;
+    const unassignedStudents = totalStudents - activeStudents;
+    const completedStudents = batchStudents.filter(
+      (student) => student.completed_program,
+    ).length;
 
-    // Get total companies
-    const totalCompanies = await Company.countDocuments();
+    const assignedCompanyIds = Array.from(
+      new Set(
+        batchStudents
+          .map((student) => student.assigned_company)
+          .filter(Boolean)
+          .map((id) => id.toString()),
+      ),
+    ).map((id) => new mongoose.Types.ObjectId(id));
 
-    // Get active companies (those with at least one student)
-    const activeCompanies = await Company.countDocuments({
-      _id: { $in: await Student.distinct("assigned_company") },
-    });
+    const totalCompanies = assignedCompanyIds.length;
+    const activeCompanies = assignedCompanyIds.length
+      ? await Company.countDocuments({
+          _id: { $in: assignedCompanyIds },
+          isSuspended: { $ne: true },
+        })
+      : 0;
 
-    // Get pending logbooks count
-    const pendingLogs = await LOGBOOK.countDocuments({ status: "pending" });
+    const pendingLogs = studentIds.length
+      ? await LOGBOOK.countDocuments({
+          status: "pending",
+          created_by: { $in: studentIds },
+        })
+      : 0;
 
-    // Get pending timesheets count
-    const pendingTimesheets = await TIMESHEET.countDocuments({
-      status: "submitted_to_dean",
-    });
+    const pendingTimesheets = studentIds.length
+      ? await TIMESHEET.countDocuments({
+          status: "submitted_to_dean",
+          student: { $in: studentIds },
+        })
+      : 0;
 
-    // Get recent logbook submissions (last 5)
-    const recentLogs = await LOGBOOK.find()
-      .populate("created_by", "name email student_admission_number")
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .select("weekNumber status createdAt");
+    const recentLogs = studentIds.length
+      ? await LOGBOOK.find({ created_by: { $in: studentIds } })
+          .populate("created_by", "name email student_admission_number")
+          .sort({ createdAt: -1 })
+          .limit(5)
+          .select("weekNumber status createdAt")
+      : [];
 
-    // Get recent timesheet submissions (last 5)
-    const recentTimesheets = await TIMESHEET.find()
-      .populate("student", "name email student_admission_number")
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .select("date status totalHours createdAt");
+    const recentTimesheets = studentIds.length
+      ? await TIMESHEET.find({ student: { $in: studentIds } })
+          .populate("student", "name email student_admission_number")
+          .sort({ createdAt: -1 })
+          .limit(5)
+          .select("date status totalHours createdAt")
+      : [];
 
     // Combine stats
     const stats = {
-      activeBatch: activeBatch || {
-        session_name: "No Active Batch",
-        year: "N/A",
-      },
+      activeBatch,
       students: {
         total: totalStudents,
         active: activeStudents,
+        unassigned: unassignedStudents,
         completed: completedStudents,
       },
       companies: {
@@ -825,7 +1004,10 @@ export {
   getAllStudents,
   getAllCompany,
   filterStudentsByBatch,
+  filterStudentsByCourse,
   getStudentById,
+  getAlumniBatches,
+  getAlumniBatchStudents,
   getPendingLogs,
   reviewStudentLog,
   getPendingTimesheets,

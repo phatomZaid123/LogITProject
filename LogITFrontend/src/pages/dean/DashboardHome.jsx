@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -14,16 +14,15 @@ import {
   Users,
   Building2,
   Clock,
-  LucideActivitySquare,
-  FileText,
   CheckCircle,
   AlertCircle,
-  TrendingUp,
   Calendar,
   BookOpen,
+  User2,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
+import DeanChatbot from "../../components/DeanChatbot";
 
 function DashboardHome() {
   const { api } = useAuth();
@@ -31,20 +30,22 @@ function DashboardHome() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [pendingItems, setPendingItems] = useState([]);
+  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
+  const summaryRef = useRef(null);
 
   // Fetch dashboard statistics
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        
+
         // Fetch dashboard stats
         const statsRes = await api.get("/dean/dashboard/stats");
         setStats(statsRes.data);
-
+        console.log("Dashboard Stats:", statsRes.data);
         // Fetch pending logs
         const logsRes = await api.get("/dean/logs/pending");
-        const pendingLogs = logsRes.data.slice(0, 5).map(log => ({
+        const pendingLogs = logsRes.data.slice(0, 5).map((log) => ({
           id: log._id,
           type: "logbook",
           student: log.created_by?.name || "Unknown",
@@ -56,15 +57,18 @@ function DashboardHome() {
 
         // Fetch pending timesheets
         const timesheetsRes = await api.get("/dean/timesheets/pending");
-        const pendingTimesheets = timesheetsRes.data.slice(0, 5).map(timesheet => ({
-          id: timesheet._id,
-          type: "timesheet",
-          student: timesheet.student?.name || "Unknown",
-          admissionNumber: timesheet.student?.student_admission_number || "N/A",
-          date: new Date(timesheet.date).toLocaleDateString(),
-          hours: timesheet.totalHours,
-          status: timesheet.status,
-        }));
+        const pendingTimesheets = timesheetsRes.data
+          .slice(0, 5)
+          .map((timesheet) => ({
+            id: timesheet._id,
+            type: "timesheet",
+            student: timesheet.student?.name || "Unknown",
+            admissionNumber:
+              timesheet.student?.student_admission_number || "N/A",
+            date: new Date(timesheet.date).toLocaleDateString(),
+            hours: timesheet.totalHours,
+            status: timesheet.status,
+          }));
 
         // Combine and sort by date
         const combined = [...pendingLogs, ...pendingTimesheets]
@@ -83,48 +87,53 @@ function DashboardHome() {
     fetchDashboardData();
   }, [api]);
 
+  useEffect(() => {
+    if (isSummaryOpen && summaryRef.current) {
+      summaryRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [isSummaryOpen]);
+
   // KPI Stats with real data
-  const kpiStats = stats ? [
-    {
-      title: "Total Students",
-      value: stats.students.total,
-      subtitle: `${stats.students.active} Active`,
-      icon: Users,
-      color: "bg-blue-100 text-blue-600",
-      trend: "+12%",
-    },
-    {
-      title: "Partner Companies",
-      value: stats.companies.total,
-      subtitle: `${stats.companies.active} Active`,
-      icon: Building2,
-      color: "bg-green-100 text-green-600",
-      trend: "+5%",
-    },
-    {
-      title: "Pending Reviews",
-      value: stats.pending.total,
-      subtitle: `${stats.pending.logbooks} Logs, ${stats.pending.timesheets} Timesheets`,
-      icon: Clock,
-      color: "bg-amber-100 text-amber-600",
-      highlight: stats.pending.total > 0,
-    },
-    {
-      title: "Completed OJT",
-      value: stats.students.completed,
-      subtitle: "This Batch",
-      icon: CheckCircle,
-      color: "bg-purple-100 text-purple-600",
-    },
-    {
-      title: "Active Batch",
-      value: stats.activeBatch.session_name,
-      subtitle: stats.activeBatch.year,
-      icon: Calendar,
-      color: "bg-indigo-100 text-indigo-600",
-      isText: true,
-    },
-  ] : [];
+  const kpiStats = stats
+    ? [
+        {
+          title: "Total Students",
+          value: stats.students.total,
+          subtitle: `${stats.students.active} Active`,
+          icon: Users,
+          color: "bg-blue-100 text-blue-600",
+        },
+        {
+          title: "Partner Companies",
+          value: stats.companies.total,
+          subtitle: `${stats.companies.active} Active`,
+          icon: Building2,
+          color: "bg-green-100 text-green-600",
+        },
+        {
+          title: "Not Assigned to OJT",
+          value: stats.students.unassigned,
+          icon: User2,
+          color: "bg-amber-100 text-amber-600",
+          highlight: stats.students.unassigned > 0,
+        },
+        {
+          title: "Completed OJT",
+          value: stats.students.completed,
+          subtitle: "This Batch",
+          icon: CheckCircle,
+          color: "bg-purple-100 text-purple-600",
+        },
+        {
+          title: "Active Batch",
+          value: stats.activeBatch.session_name,
+          subtitle: stats.activeBatch.year,
+          icon: Calendar,
+          color: "bg-indigo-100 text-indigo-600",
+          isText: true,
+        },
+      ]
+    : [];
 
   return (
     <div className="space-y-8">
@@ -134,8 +143,8 @@ function DashboardHome() {
         <p className="text-purple-100 text-lg">
           On-the-Job Training (OJT) Program Monitoring System
         </p>
-        <p className="text-sm text-purple-200 mt-2">
-          {`Academic Year: ${stats?.activeBatch.year}`}
+        <p className="text-sm text-purple-50 mt-2">
+          Details about the current Batch
         </p>
       </div>
 
@@ -155,22 +164,17 @@ function DashboardHome() {
           {kpiStats.map((stat, index) => {
             const Icon = stat.icon;
             return (
-              <Card
-                key={index}
-                elevated
-                className={`hover:shadow-lg transition-all ${
-                  stat.highlight ? "ring-2 ring-amber-400" : ""
-                }`}
-              >
+              <Card key={index} elevated>
                 <CardContent padding="sm" className="relative">
                   <div className="flex justify-between items-start mb-3">
                     <div className={`p-3 rounded-lg ${stat.color}`}>
                       <Icon size={24} />
                     </div>
-                   
                   </div>
                   <p className="text-sm text-gray-600 mb-1">{stat.title}</p>
-                  <p className={`${stat.isText ? 'text-xl' : 'text-3xl'} font-bold text-gray-900 mb-1`}>
+                  <p
+                    className={`${stat.isText ? "text-xl" : "text-3xl"} font-bold text-gray-900 mb-1`}
+                  >
                     {stat.value}
                   </p>
                   {stat.subtitle && (
@@ -186,34 +190,22 @@ function DashboardHome() {
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <QuickActionCard
-          title="Review Logbooks"
-          count={stats?.pending.logbooks || 0}
+          title="Get summaries"
+          count="Chat"
           icon={BookOpen}
           color="bg-purple-500"
-          onClick={() => navigate("/dean/dashboard/reports")}
-        />
-        <QuickActionCard
-          title="Review Timesheets"
-          count={stats?.pending.timesheets || 0}
-          icon={Clock}
-          color="bg-blue-500"
-          onClick={() => navigate("/dean/dashboard/reports")}
-        />
-        <QuickActionCard
-          title="View Students"
-          count={stats?.students.total || 0}
-          icon={Users}
-          color="bg-green-500"
-          onClick={() => navigate("/dean/dashboard/students")}
-        />
-        <QuickActionCard
-          title="View Companies"
-          count={stats?.companies.total || 0}
-          icon={Building2}
-          color="bg-orange-500"
-          onClick={() => navigate("/dean/dashboard/companies")}
+          onClick={() => setIsSummaryOpen((prev) => !prev)}
         />
       </div>
+
+      {isSummaryOpen && (
+        <div ref={summaryRef}>
+          <DeanChatbot
+            isOpen={isSummaryOpen}
+            onClose={() => setIsSummaryOpen(false)}
+          />
+        </div>
+      )}
 
       {/* Pending Approvals Table */}
       <Card elevated className="shadow-lg">
@@ -314,9 +306,7 @@ function DashboardHome() {
                         <Button
                           size="sm"
                           variant="primary"
-                          onClick={() =>
-                            navigate("/dean/dashboard/reports")
-                          }
+                          onClick={() => navigate("/dean/dashboard/reports")}
                         >
                           Review
                         </Button>
@@ -329,6 +319,7 @@ function DashboardHome() {
           )}
         </CardContent>
       </Card>
+
     </div>
   );
 }

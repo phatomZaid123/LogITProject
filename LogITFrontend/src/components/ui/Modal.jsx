@@ -106,6 +106,45 @@ const ModalForm = ({ onClose, title, batches, onBatchCreated }) => {
     }
   };
 
+  const submitCompanyDetails = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const data = Object.fromEntries(formData.entries());
+
+    if (
+      !data.companyName?.trim() ||
+      !data.companyEmail?.trim() ||
+      !data.companyPassword?.trim() ||
+      !data.companyAddress?.trim() ||
+      !data.companyContactPersonName?.trim() ||
+      !data.companyContactPersonEmail?.trim() ||
+      !data.jobTittle?.trim()
+    ) {
+      setLoading(false);
+      return alert("Check your inputs!");
+    }
+
+    try {
+      const response = await api.post("/auth/users/companies/register", data);
+
+      if (response.status === 201) {
+        toast.success("Company registered successfully!");
+        onClose();
+      }
+    } catch (error) {
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "An unexpected error occurred";
+      console.error("Submission failed:", error);
+      toast.error(`Registration failed: ${errorMessage}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     // Overlay: Handles blur and centering
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -116,44 +155,68 @@ const ModalForm = ({ onClose, title, batches, onBatchCreated }) => {
           <p className="text-sm text-gray-500 mt-1">
             {title === "Add Student"
               ? "Fill in the details to register a new student"
-              : "Create a new batch for student management"}
+              : title === "Add Company"
+                ? "Fill in the details to register a new company"
+                : "Create a new batch for student management"}
           </p>
         </div>
 
-        {title === "Add Student" ? (
-          // STUDENT FORM
+        {title === "Add Company" ? (
           <form
-            onSubmit={submitStudentDetails}
+            onSubmit={submitCompanyDetails}
             action=""
             method="post"
             className="space-y-6"
           >
-            {/* Personal Information Section */}
             <div>
               <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
-                Personal Information
+                Company Information
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name <span className="text-red-500">*</span>
+                    Company Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    name="studentName"
-                    placeholder="John Doe"
+                    name="companyName"
+                    placeholder="ABC Corporation"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email Address <span className="text-red-500">*</span>
+                    Company Email <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="email"
-                    name="studentEmail"
-                    placeholder="john.doe@example.com"
+                    name="companyEmail"
+                    placeholder="hr@abccorp.com"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Company Address <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="companyAddress"
+                    placeholder="123 Business Street"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Job Title <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="jobTittle"
+                    placeholder="HR Manager"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                     required
                   />
@@ -161,67 +224,50 @@ const ModalForm = ({ onClose, title, batches, onBatchCreated }) => {
               </div>
             </div>
 
-            {/* Academic Information Section */}
             <div>
               <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
-                Academic Information
+                Contact Person
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Admission Number <span className="text-red-500">*</span>
+                    Contact Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    name="studentAdmissionNumber"
-                    placeholder="e.g., 2024-001"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition uppercase"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Course <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="studentCourse"
-                    placeholder="e.g., BSIT"
+                    name="companyContactPersonName"
+                    placeholder="Jane Smith"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Batch <span className="text-red-500">*</span>
+                    Contact Email <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    name="studentBatch"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition bg-white"
-                    value={activeBatch}
-                    onChange={(e) => setActiveBatch(e.target.value)}
+                  <input
+                    type="email"
+                    name="companyContactPersonEmail"
+                    placeholder="jane.smith@abccorp.com"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                     required
-                  >
-                    <option value="">Select a Batch</option>
-                    {batches.map((batch) => (
-                      <option key={batch._id} value={batch._id}>
-                        {batch.session_name} - {batch.year}
-                      </option>
-                    ))}
-                  </select>
-                  {activeBatch && (
-                    <p className="text-xs text-purple-600 mt-1">
-                      ✓ Current active batch selected
-                    </p>
-                  )}
+                  />
                 </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
+                Account Access
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Password <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="password"
-                    name="studentPassword"
+                    name="companyPassword"
                     placeholder="Min. 8 characters"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                     minLength={8}
@@ -234,7 +280,6 @@ const ModalForm = ({ onClose, title, batches, onBatchCreated }) => {
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
               <Button
                 variant="outline"
@@ -266,13 +311,13 @@ const ModalForm = ({ onClose, title, batches, onBatchCreated }) => {
                       <path
                         className="opacity-75"
                         fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
                       />
                     </svg>
-                    Processing...
+                    Saving...
                   </span>
                 ) : (
-                  "Register Student"
+                  "Create Company"
                 )}
               </Button>
             </div>

@@ -12,6 +12,8 @@ import StudentList from "./pages/dean/StudentList.jsx";
 import DeanReports from "./pages/dean/DeanReports.jsx";
 import CompanyList from "./pages/dean/CompanyList.jsx";
 import DeanSettings from "./pages/dean/DeanSettings.jsx";
+import Aluminis from "./pages/dean/Aluminis.jsx";
+import AlumniBatchDetails from "./pages/dean/AlumniBatchDetails.jsx";
 import StudentLogbook from "./pages/students/StudentLogbook.jsx";
 import StudentTimesheet from "./pages/students/StudentTimesheet.jsx";
 import StudentTasks from "./pages/students/StudentTasks.jsx";
@@ -24,7 +26,6 @@ import ComplainToDean from "./pages/company/ComplainToDean.jsx";
 import CompanySettings from "./pages/company/CompanySettings.jsx";
 import CompanyHome from "./pages/company/CompanyHome.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
-import { ComplaintsProvider } from "./context/ComplaintsContext.jsx";
 import RequireRole from "./components/ProtectedRoutes.jsx";
 import { Toaster } from "react-hot-toast";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -74,6 +75,14 @@ function App() {
             {
               path: "companies",
               element: <CompanyList />,
+            },
+            {
+              path: "alumini",
+              element: <Aluminis />,
+            },
+            {
+              path: "alumini/:batchId",
+              element: <AlumniBatchDetails />,
             },
             {
               path: "reports",
@@ -192,9 +201,7 @@ function App() {
       <div className="mx-auto min-h-screen">
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <ComplaintsProvider>
-              <RouterProvider router={routes} />
-            </ComplaintsProvider>
+            <RouterProvider router={routes} />
           </AuthProvider>
         </QueryClientProvider>
         <Toaster
