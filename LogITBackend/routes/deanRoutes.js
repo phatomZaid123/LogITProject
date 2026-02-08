@@ -85,12 +85,7 @@ router.get(
   authorize("dean"),
   filterStudentsByCourse,
 );
-router.get(
-  "/alumni/batches",
-  protect,
-  authorize("dean"),
-  getAlumniBatches,
-);
+router.get("/alumni/batches", protect, authorize("dean"), getAlumniBatches);
 router.get(
   "/alumni/batch/:batchId",
   protect,

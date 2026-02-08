@@ -401,61 +401,61 @@ const DeanChatbot = ({ isOpen, onClose }) => {
         </button>
       </div>
 
-          <div className="px-6 py-4 bg-white border-b">
-            <p className="text-sm text-gray-600 mb-2">
-              Quick prompts (edit and press Enter):
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {quickPrompts.map((prompt) => (
-                <button
-                  key={prompt}
-                  type="button"
-                  onClick={() => setInput(prompt)}
-                  className="text-xs px-3 py-1.5 rounded-full border border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100"
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-gray-400 mt-2">
-              Tip: You can just provide the name and I will fetch the rest.
-            </p>
-          </div>
+      <div className="px-6 py-4 bg-white border-b">
+        <p className="text-sm text-gray-600 mb-2">
+          Quick prompts (edit and press Enter):
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {quickPrompts.map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              onClick={() => setInput(prompt)}
+              className="text-xs px-3 py-1.5 rounded-full border border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100"
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-gray-400 mt-2">
+          Tip: You can just provide the name and I will fetch the rest.
+        </p>
+      </div>
 
-          <div className="h-90 overflow-y-auto px-6 py-4 space-y-4 bg-white">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex items-start gap-3 ${
-                  message.role === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
-                {message.role === "assistant" && (
-                  <div className="w-9 h-9 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center">
-                    <Bot size={18} />
-                  </div>
-                )}
-                <div
-                  className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm whitespace-pre-line shadow-sm ${
-                    message.role === "user"
-                      ? "bg-purple-600 text-white"
-                      : "bg-gray-100 text-gray-800"
-                  }`}
-                >
-                  {message.text}
-                </div>
-                {message.role === "user" && (
-                  <div className="w-9 h-9 rounded-full bg-purple-600 text-white flex items-center justify-center">
-                    <User size={18} />
-                  </div>
-                )}
+      <div className="h-90 overflow-y-auto px-6 py-4 space-y-4 bg-white">
+        {messages.map((message) => (
+          <div
+            key={message.id}
+            className={`flex items-start gap-3 ${
+              message.role === "user" ? "justify-end" : "justify-start"
+            }`}
+          >
+            {message.role === "assistant" && (
+              <div className="w-9 h-9 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center">
+                <Bot size={18} />
               </div>
-            ))}
-            <div ref={endRef} />
+            )}
+            <div
+              className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm whitespace-pre-line shadow-sm ${
+                message.role === "user"
+                  ? "bg-purple-600 text-white"
+                  : "bg-gray-100 text-gray-800"
+              }`}
+            >
+              {message.text}
+            </div>
+            {message.role === "user" && (
+              <div className="w-9 h-9 rounded-full bg-purple-600 text-white flex items-center justify-center">
+                <User size={18} />
+              </div>
+            )}
           </div>
+        ))}
+        <div ref={endRef} />
+      </div>
 
-          <div className="px-6 py-4 border-t bg-white">
-            <div className="flex items-end gap-3">
+      <div className="px-6 py-4 border-t bg-white">
+        <div className="flex items-end gap-3">
           <textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
@@ -463,17 +463,17 @@ const DeanChatbot = ({ isOpen, onClose }) => {
             placeholder="Ask for a student or company summary..."
             className="flex-1 min-h-12 max-h-32 resize-none border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
           />
-              <Button variant="primary" size="md" onClick={handleSend}>
-                <span className="flex items-center gap-2">
-                  Send
-                  <SendHorizontal size={16} />
-                </span>
-              </Button>
-            </div>
-            <p className="text-xs text-gray-400 mt-2">
-              Tip: Press Enter to send, Shift+Enter for a new line.
-            </p>
-          </div>
+          <Button variant="primary" size="md" onClick={handleSend}>
+            <span className="flex items-center gap-2">
+              Send
+              <SendHorizontal size={16} />
+            </span>
+          </Button>
+        </div>
+        <p className="text-xs text-gray-400 mt-2">
+          Tip: Press Enter to send, Shift+Enter for a new line.
+        </p>
+      </div>
     </div>
   );
 };

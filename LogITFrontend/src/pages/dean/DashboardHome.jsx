@@ -319,7 +319,6 @@ function DashboardHome() {
           )}
         </CardContent>
       </Card>
-
     </div>
   );
 }
