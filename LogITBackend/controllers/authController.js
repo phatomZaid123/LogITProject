@@ -245,7 +245,9 @@ const resetPassword = async (req, res) => {
   try {
     const { token, password } = req.body;
     if (!token || !password) {
-      return res.status(400).json({ message: "Token and password are required" });
+      return res
+        .status(400)
+        .json({ message: "Token and password are required" });
     }
 
     const resetTokenHash = crypto
@@ -259,7 +261,9 @@ const resetPassword = async (req, res) => {
     }).select("+password");
 
     if (!user) {
-      return res.status(400).json({ message: "Invalid or expired reset token" });
+      return res
+        .status(400)
+        .json({ message: "Invalid or expired reset token" });
     }
 
     user.password = password;

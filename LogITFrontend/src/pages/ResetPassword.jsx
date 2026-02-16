@@ -42,9 +42,7 @@ const ResetPassword = () => {
       navigate("/login");
     } catch (error) {
       console.error("Reset password error:", error);
-      toast.error(
-        error.response?.data?.message || "Failed to reset password.",
-      );
+      toast.error(error.response?.data?.message || "Failed to reset password.");
     } finally {
       setLoading(false);
     }

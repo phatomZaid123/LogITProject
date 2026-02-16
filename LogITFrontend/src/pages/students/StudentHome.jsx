@@ -22,7 +22,6 @@ function StudentHome() {
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  
   useEffect(() => {
     const fetchDashboard = async () => {
       try {

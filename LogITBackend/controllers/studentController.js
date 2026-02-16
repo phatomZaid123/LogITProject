@@ -3,15 +3,11 @@ import { TIMESHEET } from "../models/timesheet.js";
 import { TASK } from "../models/task.js";
 import mongoose from "mongoose";
 import Student from "../models/student.js";
-import {
-  createNotification,
-} from "../utils/notificationUtils.js";
+import { createNotification } from "../utils/notificationUtils.js";
 
 // @desc    Create a new weekly log with attachments
 // @route   POST /api/student/logs
 const createWeeklyLog = async (req, res) => {
-  
-  
   try {
     const {
       weekNumber,
@@ -416,11 +412,15 @@ const updateTimesheet = async (req, res) => {
     }
 
     if (!dailyLog || !dailyLog.trim()) {
-      return res.status(400).json({ message: "Daily accomplished tasks are required" });
+      return res
+        .status(400)
+        .json({ message: "Daily accomplished tasks are required" });
     }
 
     if (entry.timeOut) {
-      return res.status(400).json({ message: "Time out is already recorded for this day" });
+      return res
+        .status(400)
+        .json({ message: "Time out is already recorded for this day" });
     }
 
     entry.timeOut = timeOut;
@@ -468,7 +468,7 @@ const submitLogToDean = async (req, res) => {
       return res.status(404).json({ message: "Logbook entry not found" });
     }
 
-    if (!(["draft", "declined"].includes(log.status))) {
+    if (!["draft", "declined"].includes(log.status)) {
       return res.status(400).json({
         message: "Only draft or declined logs can be submitted to dean.",
       });
@@ -548,7 +548,9 @@ const updateMyTaskStatus = async (req, res) => {
     }
 
     if (task.status === "completed") {
-      return res.status(400).json({ message: "Completed tasks cannot be edited" });
+      return res
+        .status(400)
+        .json({ message: "Completed tasks cannot be edited" });
     }
 
     task.status = status;

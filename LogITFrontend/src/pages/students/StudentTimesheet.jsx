@@ -624,10 +624,12 @@ function StudentTimesheet() {
                 {currentWeekSummary.counts.company_approved || 0}
               </div>
               <div className="p-3 rounded-lg bg-amber-50 text-amber-700 font-semibold">
-                Needs Revision: {currentWeekSummary.counts.company_declined || 0}
+                Needs Revision:{" "}
+                {currentWeekSummary.counts.company_declined || 0}
               </div>
               <div className="p-3 rounded-lg bg-emerald-50 text-emerald-700 font-semibold">
-                Company Approved: {currentWeekSummary.counts.company_approved || 0}
+                Company Approved:{" "}
+                {currentWeekSummary.counts.company_approved || 0}
               </div>
             </div>
 

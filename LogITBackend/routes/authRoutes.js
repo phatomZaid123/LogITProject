@@ -22,7 +22,6 @@ router.post("/reset-password", resetPassword);
 //student register route
 router.post("/students/register", registerStudent);
 
-
 //company register route
 router.post("/companies/register", registerCompany);
 export default router;

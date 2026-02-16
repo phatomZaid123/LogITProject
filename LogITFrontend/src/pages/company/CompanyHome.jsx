@@ -46,8 +46,6 @@ function CompanyHome() {
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
 
-
-
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
     try {
@@ -180,8 +178,6 @@ function CompanyHome() {
             submissions, and the tasks driving their outcomes.
           </p>
         </div>
-
-       
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -222,7 +218,6 @@ function CompanyHome() {
                     Company-approved hours versus requirements
                   </CardDescription>
                 </div>
-               
               </div>
             </CardHeader>
             <CardContent padding="none">
@@ -313,8 +308,6 @@ function CompanyHome() {
             </CardContent>
           </Card>
         </div>
-
-       
       </div>
     </div>
   );

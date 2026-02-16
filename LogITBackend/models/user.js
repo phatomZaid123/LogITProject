@@ -32,7 +32,7 @@ const userSchema = new mongoose.Schema(
     discriminatorKey: "role",
 
     timestamps: true,
-  }
+  },
 );
 
 userSchema.pre("save", async function () {

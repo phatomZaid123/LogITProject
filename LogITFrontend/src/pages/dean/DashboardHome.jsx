@@ -32,8 +32,6 @@ function DashboardHome() {
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const summaryRef = useRef(null);
 
-
-
   // Fetch dashboard statistics
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -263,14 +261,17 @@ function DashboardHome() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        {item.approvedHours.toFixed(1)} / {item.requiredHours.toFixed(1)} h
+                        {item.approvedHours.toFixed(1)} /{" "}
+                        {item.requiredHours.toFixed(1)} h
                       </td>
                       <td className="px-6 py-4 text-center">
                         <Button
                           size="sm"
                           variant="primary"
                           onClick={() =>
-                            navigate(`/dean/dashboard/studentprofile/${item.id}`)
+                            navigate(
+                              `/dean/dashboard/studentprofile/${item.id}`,
+                            )
                           }
                         >
                           Review

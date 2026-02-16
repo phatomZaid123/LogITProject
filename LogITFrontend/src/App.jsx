@@ -94,7 +94,7 @@ function App() {
               path: "alumini/:batchId",
               element: <AlumniBatchDetails />,
             },
-           
+
             {
               path: "complaints",
               element: <CompanyComplains />,
@@ -144,7 +144,7 @@ function App() {
               path: "timesheet",
               element: <StudentTimesheet />,
             },
-          
+
             {
               path: "reports",
               element: <StudentReports />,
@@ -170,7 +170,7 @@ function App() {
               path: "interns",
               element: <CompanyEmployees />,
             },
-          
+
             {
               path: "reports",
               element: <CompanyReports />,

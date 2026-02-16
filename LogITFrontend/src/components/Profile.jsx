@@ -50,7 +50,7 @@ export default function StudentProfile() {
     try {
       await api.put(`/dean/students/${id}/complete`);
       toast.success("Student marked as completed");
-     
+
       const response = await api.get(`/dean/student/${id}`);
       setStudent(response.data);
     } catch (err) {
@@ -265,9 +265,7 @@ export default function StudentProfile() {
               <StudentTimeTable timesheets={student.timesheets || []} />
             )}
             <div className="text-right">
-              <Button 
-              className="justify-center m-2 "
-              onClick={markAsCompleted}>
+              <Button className="justify-center m-2 " onClick={markAsCompleted}>
                 {" "}
                 Mark as Completed
               </Button>

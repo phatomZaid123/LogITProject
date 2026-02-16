@@ -60,12 +60,16 @@ function Notification({
               }`}
             >
               <div className="flex items-start justify-between gap-3">
-                <p className="text-sm font-semibold text-gray-900">{item.title}</p>
+                <p className="text-sm font-semibold text-gray-900">
+                  {item.title}
+                </p>
                 {!item.isRead && (
                   <span className="mt-1 inline-block h-2 w-2 rounded-full bg-purple-600" />
                 )}
               </div>
-              <p className="mt-1 text-xs text-gray-600 line-clamp-2">{item.message}</p>
+              <p className="mt-1 text-xs text-gray-600 line-clamp-2">
+                {item.message}
+              </p>
               <p className="mt-2 text-[11px] text-gray-400">
                 {formatTimeAgo(item.createdAt)}
               </p>

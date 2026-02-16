@@ -3,7 +3,10 @@ import Notification from "../models/notification.js";
 
 export const getMyNotifications = async (req, res) => {
   try {
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || 20, 1),
+      50,
+    );
 
     const [notifications, unreadCount] = await Promise.all([
       Notification.find({ recipient: req.user._id })
