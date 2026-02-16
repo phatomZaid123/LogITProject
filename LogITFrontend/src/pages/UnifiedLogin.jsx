@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import LogITLogo from "../assets/LogITLogo.jpeg";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
@@ -119,6 +119,15 @@ const UnifiedLogin = () => {
             />
           </div>
 
+          <div className="mb-6 flex justify-end">
+            <Link
+              to="/forgot-password"
+              className="text-sm font-medium text-purple-600 hover:text-purple-700 transition"
+            >
+              Forgot password?
+            </Link>
+          </div>
+
           {/* Submit Button */}
           <button
             type="submit"
@@ -149,28 +158,6 @@ const UnifiedLogin = () => {
               "Sign In"
             )}
           </button>
-
-          {/* Registration Links */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-center text-gray-600 text-sm mb-3">
-              Don't have an account?
-            </p>
-            <div className="flex gap-3 justify-center flex-wrap">
-              <a
-                href="/register/student"
-                className="text-purple-600 hover:text-purple-700 text-sm font-medium hover:underline"
-              >
-                Register as Student
-              </a>
-              <span className="text-gray-300">•</span>
-              <a
-                href="/register/company"
-                className="text-indigo-600 hover:text-indigo-700 text-sm font-medium hover:underline"
-              >
-                Register as Company
-              </a>
-            </div>
-          </div>
         </form>
       </div>
     </div>

@@ -14,9 +14,11 @@ const timesheetSchema = new mongoose.Schema(
     },
     date: { type: Date, required: true, default: Date.now },
     timeIn: { type: String, required: true },
-    timeOut: { type: String, required: true },
+    timeOut: { type: String, default: "" },
     breakMinutes: { type: Number, default: 0 }, // Added this field
     totalHours: { type: Number, default: 0 },
+    dailyLog: { type: String, default: "" },
+    autoTimedOut: { type: Boolean, default: false },
     status: {
       type: String,
       enum: [
@@ -38,6 +40,11 @@ const timesheetSchema = new mongoose.Schema(
 );
 
 timesheetSchema.pre("save", function () {
+  if (!this.timeIn || !this.timeOut) {
+    this.totalHours = 0;
+    return;
+  }
+
   if (
     this.isModified("timeIn") ||
     this.isModified("timeOut") ||

@@ -13,6 +13,9 @@ import {
   createTimesheet,
   submitTimesheetsToDean,
   getStudentTasks,
+  updateMyTaskStatus,
+  getStudentDashboardStats,
+  submitLogToDean,
 } from "../controllers/studentController.js";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 import { upload } from "../middleware/uploads.js";
@@ -28,6 +31,7 @@ router.post(
 );
 router.get("/logs", protect, authorize("student"), getStudentLogs);
 router.get("/logs/stats", protect, authorize("student"), getLogStats);
+router.put("/logs/:id/submit", protect, authorize("student"), submitLogToDean);
 
 router.post("/timesheets", protect, authorize("student"), createTimesheetEntry);
 router.get(
@@ -62,4 +66,16 @@ router.post(
   createTimesheet,
 );
 router.get("/tasks", protect, authorize("student"), getStudentTasks);
+router.patch(
+  "/tasks/:taskId/status",
+  protect,
+  authorize("student"),
+  updateMyTaskStatus,
+);
+router.get(
+  "/dashboard/stats",
+  protect,
+  authorize("student"),
+  getStudentDashboardStats,
+);
 export default router;

@@ -12,8 +12,7 @@ const WeekSelector = ({ weeks, currentWeekIndex, onChange, onWeekChange }) => {
       Draft: "bg-gray-50 text-gray-600 border border-gray-200",
       "Company Review": "bg-amber-50 text-amber-600 border border-amber-100",
       "Needs Revision": "bg-red-50 text-red-600 border border-red-100",
-      "Ready for Dean": "bg-blue-50 text-blue-600 border border-blue-100",
-      "Dean Review": "bg-indigo-50 text-indigo-600 border border-indigo-100",
+      Approved: "bg-emerald-50 text-emerald-600 border border-emerald-100",
       Locked: "bg-emerald-50 text-emerald-600 border border-emerald-100",
     }[statusLabel] || "bg-gray-50 text-gray-500 border border-gray-100";
 

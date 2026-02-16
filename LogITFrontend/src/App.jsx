@@ -1,5 +1,7 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import UnifiedLogin from "./pages/UnifiedLogin.jsx";
+import ForgotPassword from "./pages/ForgotPassword.jsx";
+import ResetPassword from "./pages/ResetPassword.jsx";
 import DeanDashboard from "./pages/dean/DeanDashboard.jsx";
 import StudentDashboard from "./pages/students/StudentDashboard.jsx";
 import StudentRegistration from "./pages/students/StudentRegistration.jsx";
@@ -9,18 +11,18 @@ import DashboardHome from "./pages/dean/DashboardHome.jsx";
 import StudentReport from "./pages/dean/StudentReport.jsx";
 import CompanyRegistration from "./pages/company/CompanyRegistration.jsx";
 import StudentList from "./pages/dean/StudentList.jsx";
-import DeanReports from "./pages/dean/DeanReports.jsx";
+
 import CompanyList from "./pages/dean/CompanyList.jsx";
 import DeanSettings from "./pages/dean/DeanSettings.jsx";
 import Aluminis from "./pages/dean/Aluminis.jsx";
 import AlumniBatchDetails from "./pages/dean/AlumniBatchDetails.jsx";
 import StudentLogbook from "./pages/students/StudentLogbook.jsx";
 import StudentTimesheet from "./pages/students/StudentTimesheet.jsx";
-import StudentTasks from "./pages/students/StudentTasks.jsx";
+
 import StudentReports from "./pages/students/StudentReports.jsx";
 import StudentHome from "./pages/students/StudentHome.jsx";
 import CompanyEmployees from "./pages/company/CompanyInterns.jsx";
-import CompanyTasks from "./pages/company/CompanyTasks.jsx";
+
 import CompanyReports from "./pages/company/CompanyReports.jsx";
 import ComplainToDean from "./pages/company/ComplainToDean.jsx";
 import CompanySettings from "./pages/company/CompanySettings.jsx";
@@ -44,6 +46,14 @@ function App() {
     {
       path: "/login",
       element: <UnifiedLogin />,
+    },
+    {
+      path: "/forgot-password",
+      element: <ForgotPassword />,
+    },
+    {
+      path: "/reset-password",
+      element: <ResetPassword />,
     },
     {
       path: "/register/student",
@@ -84,10 +94,7 @@ function App() {
               path: "alumini/:batchId",
               element: <AlumniBatchDetails />,
             },
-            {
-              path: "reports",
-              element: <DeanReports />,
-            },
+           
             {
               path: "complaints",
               element: <CompanyComplains />,
@@ -137,10 +144,7 @@ function App() {
               path: "timesheet",
               element: <StudentTimesheet />,
             },
-            {
-              path: "tasks",
-              element: <StudentTasks />,
-            },
+          
             {
               path: "reports",
               element: <StudentReports />,
@@ -166,10 +170,7 @@ function App() {
               path: "interns",
               element: <CompanyEmployees />,
             },
-            {
-              path: "tasks",
-              element: <CompanyTasks />,
-            },
+          
             {
               path: "reports",
               element: <CompanyReports />,

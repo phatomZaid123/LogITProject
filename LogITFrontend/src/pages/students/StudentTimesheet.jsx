@@ -41,30 +41,17 @@ const WEEK_STATE_META = {
     description:
       "Company requested adjustments. Update the declined days and resubmit.",
   },
-  ready_for_dean: {
-    label: "Ready for Dean",
-    badge: "bg-blue-100 text-blue-700 border border-blue-200",
-    description:
-      "Company approved every log. Submit to the dean for final review.",
-  },
-  dean_review: {
-    label: "Dean Review",
-    badge: "bg-indigo-100 text-indigo-700 border border-indigo-200",
-    description: "Dean is reviewing the week. No edits allowed.",
-  },
-  locked: {
-    label: "Locked",
+  approved: {
+    label: "Approved",
     badge: "bg-emerald-100 text-emerald-700 border border-emerald-200",
-    description: "Dean approved the week. Record is permanently locked.",
+    description: "Company approved this week. The week is finalized.",
   },
 };
 
 const WEEK_STEP_SEQUENCE = [
   { key: "draft", label: "Student Draft" },
   { key: "company_review", label: "Company Review" },
-  { key: "ready_for_dean", label: "Ready for Dean" },
-  { key: "dean_review", label: "Dean Review" },
-  { key: "locked", label: "Locked" },
+  { key: "approved", label: "Approved" },
 ];
 
 const deriveWeekState = (entries = []) => {
@@ -72,20 +59,8 @@ const deriveWeekState = (entries = []) => {
 
   const statuses = entries.map((entry) => entry.status);
 
-  if (statuses.every((status) => status === "dean_approved")) {
-    return "locked";
-  }
-
-  if (
-    statuses.some((status) =>
-      ["dean_declined", "submitted_to_dean"].includes(status),
-    )
-  ) {
-    return "dean_review";
-  }
-
   if (statuses.every((status) => status === "company_approved")) {
-    return "ready_for_dean";
+    return "approved";
   }
 
   if (statuses.some((status) => status === "company_declined")) {
@@ -111,22 +86,21 @@ const buildWeekSummary = (entries = []) => {
 
   const state = deriveWeekState(entries);
   const meta = WEEK_STATE_META[state] || WEEK_STATE_META.draft;
-  const hasIncompleteFields = entries.some(
-    (entry) => !entry.timeIn || !entry.timeOut,
+  const hasIncompleteFields = entries.some((entry) => !entry.timeOut);
+  const hasSubmittableEntries = entries.some((entry) =>
+    ["pending", "company_declined"].includes(entry.status),
   );
-  const allPending =
-    entries.length > 0 && entries.every((entry) => entry.status === "pending");
   const studentCanEdit = ["draft", "company_returned"].includes(state);
-  const canSubmitToCompany =
-    studentCanEdit && allPending && !hasIncompleteFields;
-  const canSubmitToDean = state === "ready_for_dean";
+  const canSubmitToCompany = studentCanEdit && hasSubmittableEntries;
 
   const statusNotes = [];
   if (!entries.length) {
     statusNotes.push("Add at least one log before submitting.");
   }
   if (hasIncompleteFields) {
-    statusNotes.push("Fill in both time in and time out for every log.");
+    statusNotes.push(
+      "Days without time out are automatically timed out during weekly submission.",
+    );
   }
   if (state === "company_returned") {
     statusNotes.push(
@@ -136,11 +110,8 @@ const buildWeekSummary = (entries = []) => {
   if (state === "company_review") {
     statusNotes.push("Waiting for company reviewer.");
   }
-  if (state === "dean_review") {
-    statusNotes.push("Waiting for dean decision.");
-  }
-  if (state === "locked") {
-    statusNotes.push("Dean approved — this week is locked.");
+  if (state === "approved") {
+    statusNotes.push("Company approved — this week is finalized.");
   }
 
   return {
@@ -152,7 +123,6 @@ const buildWeekSummary = (entries = []) => {
     studentCanEdit,
     companyCanEdit: state === "company_review",
     canSubmitToCompany,
-    canSubmitToDean,
     statusNotes,
   };
 };
@@ -253,7 +223,7 @@ function StudentTimesheet() {
         end: new Date(weekEnd),
         entries: weekEntries,
         totalHours,
-        allApproved: summary.state === "locked",
+        allApproved: summary.state === "approved",
         summary,
         weekStatus: summary.statusLabel,
       });
@@ -275,7 +245,6 @@ function StudentTimesheet() {
       studentCanEdit: currentWeekSummary.studentCanEdit,
       companyCanEdit: currentWeekSummary.companyCanEdit,
       canSubmitToCompany: currentWeekSummary.canSubmitToCompany,
-      canSubmitToDean: currentWeekSummary.canSubmitToDean,
     }),
     [currentWeekSummary],
   );
@@ -286,12 +255,8 @@ function StudentTimesheet() {
     switch (currentWeekSummary.state) {
       case "company_review":
         return "Awaiting company review.";
-      case "ready_for_dean":
-        return "Company approved every log. Submit to the dean next.";
-      case "dean_review":
-        return "Awaiting dean final review.";
-      case "locked":
-        return "Dean approved — this week is locked.";
+      case "approved":
+        return "Company approved — this week is finalized.";
       case "company_returned":
         return "Company requested changes. Update the flagged days.";
       default:
@@ -399,30 +364,6 @@ function StudentTimesheet() {
     }
   };
 
-  // Handle Bulk Submission to Dean
-  const handleSubmitToDean = async () => {
-    if (!currentWeek || !permissions.canSubmitToDean) {
-      toast.error("Only company-approved weeks can be submitted to the dean.");
-      return;
-    }
-    if (
-      window.confirm(
-        "Submit company-approved timesheets to dean for final review?",
-      )
-    ) {
-      try {
-        await api.put("/student/timesheets/submit-to-dean", {
-          weekStart: currentWeek.start.toISOString(),
-          weekEnd: currentWeek.end.toISOString(),
-        });
-        toast.success("Timesheets submitted to dean!");
-        fetchData(); // Refresh the grid
-      } catch (err) {
-        toast.error(err.response?.data?.message || "Failed to submit to dean");
-      }
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -502,7 +443,7 @@ function StudentTimesheet() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-green-100 text-sm font-medium">
-                    Dean Approved
+                    Company Approved
                   </p>
                   <p className="text-3xl font-bold mt-1">
                     {approvedHours.toFixed(1)}h
@@ -538,7 +479,7 @@ function StudentTimesheet() {
                     {progressPercent.toFixed(1)}%
                   </p>
                   <p className="text-xs text-blue-100 mt-1">
-                    Based on dean-approved hours
+                    Based on company-approved hours
                   </p>
                 </div>
                 <BarChart3 className="text-blue-200" size={40} />
@@ -683,11 +624,10 @@ function StudentTimesheet() {
                 {currentWeekSummary.counts.company_approved || 0}
               </div>
               <div className="p-3 rounded-lg bg-amber-50 text-amber-700 font-semibold">
-                Awaiting Dean:{" "}
-                {currentWeekSummary.counts.submitted_to_dean || 0}
+                Needs Revision: {currentWeekSummary.counts.company_declined || 0}
               </div>
               <div className="p-3 rounded-lg bg-emerald-50 text-emerald-700 font-semibold">
-                Dean Approved: {currentWeekSummary.counts.dean_approved || 0}
+                Company Approved: {currentWeekSummary.counts.company_approved || 0}
               </div>
             </div>
 
@@ -775,7 +715,7 @@ function StudentTimesheet() {
             <p className="text-sm text-gray-600 flex items-center gap-2">
               {permissions.studentCanEdit ? (
                 <Clock className="text-green-600" size={16} />
-              ) : currentWeekSummary.state === "locked" ? (
+              ) : currentWeekSummary.state === "approved" ? (
                 <CheckCircle className="text-emerald-600" size={16} />
               ) : currentWeekSummary.state === "company_returned" ? (
                 <AlertCircle className="text-red-500" size={16} />
@@ -801,29 +741,13 @@ function StudentTimesheet() {
                 </Button>
               )}
 
-              {permissions.canSubmitToDean && (
-                <Button
-                  onClick={handleSubmitToDean}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Send size={16} className="mr-2" />
-                  Submit to Dean
-                </Button>
-              )}
-
               {currentWeekSummary.state === "company_review" && (
                 <Button disabled className="bg-amber-100 text-amber-700">
                   <Clock size={16} className="mr-2" /> Waiting for Company
                 </Button>
               )}
 
-              {currentWeekSummary.state === "dean_review" && (
-                <Button disabled className="bg-blue-100 text-blue-700">
-                  <Clock size={16} className="mr-2" /> Dean Review in Progress
-                </Button>
-              )}
-
-              {currentWeekSummary.state === "locked" && (
+              {currentWeekSummary.state === "approved" && (
                 <Button disabled className="bg-emerald-100 text-emerald-700">
                   <CheckCircle size={16} className="mr-2" /> Approved
                 </Button>

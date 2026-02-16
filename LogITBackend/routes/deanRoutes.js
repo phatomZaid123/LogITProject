@@ -22,6 +22,7 @@ import {
   filterStudentsByCourse,
   getAlumniBatches,
   getAlumniBatchStudents,
+  markStudentCompleted,
 } from "../controllers/deanController.js";
 import express from "express";
 
@@ -95,6 +96,12 @@ router.get(
 router.get("/student/:studentId", protect, authorize("dean"), getStudentById);
 router.get("/logs/pending", protect, authorize("dean"), getPendingLogs);
 router.put("/logs/:id/review", protect, authorize("dean"), reviewStudentLog);
+router.put(
+  "/students/:id/complete",
+  protect,
+  authorize("dean"),
+  markStudentCompleted,
+);
 router.get(
   "/timesheets/pending",
   protect,

@@ -3,10 +3,15 @@ import { TIMESHEET } from "../models/timesheet.js";
 import { TASK } from "../models/task.js";
 import mongoose from "mongoose";
 import Student from "../models/student.js";
+import {
+  createNotification,
+} from "../utils/notificationUtils.js";
 
 // @desc    Create a new weekly log with attachments
 // @route   POST /api/student/logs
 const createWeeklyLog = async (req, res) => {
+  
+  
   try {
     const {
       weekNumber,
@@ -115,18 +120,51 @@ const getLogStats = async (req, res) => {
 // @desc    Bulk submit pending timesheets to company
 const submitWeeklyTimesheet = async (req, res) => {
   try {
-    const result = await TIMESHEET.updateMany(
-      {
-        student: req.user._id, // From protect middleware
-        status: "pending",
-      },
-      { $set: { status: "submitted_to_company" } },
-    );
+    const { weekStart, weekEnd } = req.body || {};
+    const dateFilter = {};
+
+    if (weekStart && weekEnd) {
+      dateFilter.date = {
+        $gte: new Date(weekStart),
+        $lte: new Date(weekEnd),
+      };
+    }
+
+    const entries = await TIMESHEET.find({
+      student: req.user._id,
+      status: { $in: ["pending", "company_declined"] },
+      ...dateFilter,
+    });
+
+    if (!entries.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No draft entries found for this week.",
+      });
+    }
+
+    let autoTimedOutCount = 0;
+
+    for (const entry of entries) {
+      if (!entry.timeOut) {
+        entry.timeOut = "23:59";
+        entry.autoTimedOut = true;
+        autoTimedOutCount += 1;
+      }
+
+      entry.status = "submitted_to_company";
+      await entry.save();
+    }
 
     res.status(200).json({
       success: true,
-      message: `${result.modifiedCount} entries submitted to company.`,
-      modifiedCount: result.modifiedCount,
+      message: `${entries.length} entries submitted to company.${
+        autoTimedOutCount
+          ? ` ${autoTimedOutCount} entr${autoTimedOutCount === 1 ? "y was" : "ies were"} automatically timed out.`
+          : ""
+      }`,
+      modifiedCount: entries.length,
+      autoTimedOutCount,
     });
   } catch (error) {
     res
@@ -186,7 +224,7 @@ const getStudentOjtProgress = async (req, res) => {
         $match: {
           // Explicitly cast to ObjectId for aggregate to work
           student: new mongoose.Types.ObjectId(studentId),
-          status: "dean_approved",
+          status: "company_approved",
         },
       },
       {
@@ -216,7 +254,7 @@ const getStudentOjtProgress = async (req, res) => {
 // @route   POST /api/student/timesheets
 export const createTimesheetEntry = async (req, res) => {
   try {
-    const { date, timeIn, timeOut, breakMinutes } = req.body;
+    const { date, timeIn } = req.body;
 
     //  Get student to find their assigned company
     const student = await Student.findById(req.user._id);
@@ -284,9 +322,16 @@ export const createTimesheetEntry = async (req, res) => {
       student: req.user._id,
       company: student.assigned_company || null, // Allow null for now
       date: entryDate,
-      timeIn,
-      timeOut,
-      breakMinutes: breakMinutes || 0,
+      timeIn:
+        timeIn ||
+        new Date().toLocaleTimeString("en-GB", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }),
+      timeOut: "",
+      breakMinutes: 0,
+      dailyLog: "",
       status: "pending", // Initial state
     });
 
@@ -346,7 +391,7 @@ export const createTimesheet = async (req, res) => {
 const updateTimesheet = async (req, res) => {
   try {
     const { id } = req.params;
-    const { timeIn, timeOut, breakMinutes } = req.body;
+    const { timeOut, breakMinutes, dailyLog } = req.body;
 
     // 1. Find the entry
     const entry = await TIMESHEET.findById(id);
@@ -354,16 +399,33 @@ const updateTimesheet = async (req, res) => {
 
     // 2. SECURITY: Only allow edits if the status is still 'pending'
     // If it's 'submitted', 'approved', or 'edited_by_company', lock it for the student.
-    if (entry.status !== "pending") {
+    if (!["pending", "company_declined"].includes(entry.status)) {
       return res.status(403).json({
         message:
           "Locked: You cannot edit an entry that has been submitted or reviewed.",
       });
     }
 
-    // 3. Update fields
-    if (timeIn) entry.timeIn = timeIn;
-    if (timeOut) entry.timeOut = timeOut;
+    if (entry.student.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    // 3. Update fields (clock-out flow)
+    if (!timeOut) {
+      return res.status(400).json({ message: "Time out is required" });
+    }
+
+    if (!dailyLog || !dailyLog.trim()) {
+      return res.status(400).json({ message: "Daily accomplished tasks are required" });
+    }
+
+    if (entry.timeOut) {
+      return res.status(400).json({ message: "Time out is already recorded for this day" });
+    }
+
+    entry.timeOut = timeOut;
+    entry.dailyLog = dailyLog.trim();
+    entry.autoTimedOut = false;
     if (breakMinutes !== undefined) entry.breakMinutes = breakMinutes;
 
     // 4. Save the entry
@@ -383,30 +445,66 @@ const updateTimesheet = async (req, res) => {
 // @route   PUT /api/student/timesheets/submit-to-dean
 const submitTimesheetsToDean = async (req, res) => {
   try {
-    // Only submit entries that have been approved by company
-    const result = await TIMESHEET.updateMany(
-      {
-        student: req.user._id,
-        status: "company_approved",
-      },
-      { $set: { status: "submitted_to_dean" } },
-    );
-
-    if (result.modifiedCount === 0) {
-      return res.status(400).json({
-        message: "No company-approved entries found to submit to dean.",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: `${result.modifiedCount} entries submitted to dean for review.`,
-      modifiedCount: result.modifiedCount,
+    return res.status(410).json({
+      success: false,
+      message:
+        "Timesheets are now finalized at company level. Dean submission is disabled.",
     });
   } catch (error) {
     res
       .status(500)
       .json({ message: "Submission failed", error: error.message });
+  }
+};
+
+// @desc    Submit a logbook draft to dean
+// @route   PUT /api/student/logs/:id/submit
+const submitLogToDean = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const log = await LOGBOOK.findOne({ _id: id, created_by: req.user._id });
+    if (!log) {
+      return res.status(404).json({ message: "Logbook entry not found" });
+    }
+
+    if (!(["draft", "declined"].includes(log.status))) {
+      return res.status(400).json({
+        message: "Only draft or declined logs can be submitted to dean.",
+      });
+    }
+
+    log.status = "pending";
+    if (log.deanFeedback) log.deanFeedback = "";
+    await log.save();
+
+    const student = await Student.findById(req.user._id).select(
+      "assigned_company",
+    );
+
+    if (student?.assigned_company) {
+      await createNotification({
+        recipient: student.assigned_company,
+        recipientRole: "company",
+        type: "log_submitted",
+        title: "Student log submitted",
+        message: `${req.user?.name || "A student"} submitted logbook week ${log.weekNumber || "N/A"} for company review.`,
+        link: "/company/dashboard/reports",
+        data: {
+          logId: log._id,
+          studentId: req.user._id,
+        },
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Log submitted to company for review",
+      data: log,
+    });
+  } catch (error) {
+    console.error("Submit Log Error:", error);
+    res.status(500).json({ message: "Failed to submit log" });
   }
 };
 
@@ -425,6 +523,215 @@ const getStudentTasks = async (req, res) => {
   }
 };
 
+const updateMyTaskStatus = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { status } = req.body;
+
+    const allowedStatuses = ["in-progress", "submitted"];
+
+    if (!status || !allowedStatuses.includes(status)) {
+      return res.status(400).json({ message: "Invalid status value" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(taskId)) {
+      return res.status(400).json({ message: "Invalid task ID format" });
+    }
+
+    const task = await TASK.findOne({
+      _id: taskId,
+      assigned_to: req.user._id,
+    }).populate("created_by_company", "name email");
+
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    if (task.status === "completed") {
+      return res.status(400).json({ message: "Completed tasks cannot be edited" });
+    }
+
+    task.status = status;
+    await task.save();
+
+    if (status === "submitted") {
+      await createNotification({
+        recipient: task.created_by_company?._id,
+        recipientRole: "company",
+        type: "task_submitted",
+        title: "Task submitted by student",
+        message: `${req.user?.name || "A student"} submitted task: ${task.title}`,
+        link: "/company/dashboard/tasks",
+        data: {
+          taskId: task._id,
+          studentId: req.user._id,
+        },
+      });
+    }
+
+    res.status(200).json({ success: true, task });
+  } catch (error) {
+    console.error("Update Student Task Status Error:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to update task status", error: error.message });
+  }
+};
+
+// @desc    Get student dashboard stats and overview data
+// @route   GET /api/student/dashboard/stats
+const getStudentDashboardStats = async (req, res) => {
+  try {
+    const student = await Student.findById(req.user._id)
+      .select("ojt_hours_required assigned_company")
+      .populate(
+        "assigned_company",
+        "name contact_person job_title company_address isSuspended",
+      )
+      .lean();
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const studentId = req.user._id;
+    const requiredHours = student.ojt_hours_required || 500;
+
+    const [
+      approvedHoursAgg,
+      approvedLogs,
+      pendingLogs,
+      completedTasks,
+      pendingTimesheets,
+      recentLogs,
+      recentTimesheets,
+      recentTasks,
+      upcomingTasks,
+    ] = await Promise.all([
+      TIMESHEET.aggregate([
+        {
+          $match: {
+            student: new mongoose.Types.ObjectId(studentId),
+            status: "company_approved",
+          },
+        },
+        { $group: { _id: null, totalHours: { $sum: "$totalHours" } } },
+      ]),
+      LOGBOOK.countDocuments({
+        created_by: studentId,
+        status: "approved",
+      }),
+      LOGBOOK.countDocuments({
+        created_by: studentId,
+        status: "pending",
+      }),
+      TASK.countDocuments({
+        assigned_to: studentId,
+        status: "completed",
+      }),
+      TIMESHEET.countDocuments({
+        student: studentId,
+        status: {
+          $in: [
+            "pending",
+            "submitted_to_company",
+            "company_approved",
+            "edited_by_company",
+          ],
+        },
+      }),
+      LOGBOOK.find({ created_by: studentId })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select("weekNumber status createdAt"),
+      TIMESHEET.find({ student: studentId })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select("date status totalHours createdAt"),
+      TASK.find({ assigned_to: studentId })
+        .sort({ updatedAt: -1 })
+        .limit(5)
+        .select("title status dueDate updatedAt"),
+      TASK.find({
+        assigned_to: studentId,
+        status: { $ne: "completed" },
+        dueDate: { $gte: new Date() },
+      })
+        .sort({ dueDate: 1 })
+        .limit(5)
+        .select("title status dueDate"),
+    ]);
+
+    const totalApprovedHours = approvedHoursAgg[0]?.totalHours || 0;
+    const percentComplete =
+      requiredHours > 0
+        ? Number(((totalApprovedHours / requiredHours) * 100).toFixed(2))
+        : 0;
+
+    const getPriority = (dueDate) => {
+      const now = new Date();
+      const diffDays = Math.ceil(
+        (new Date(dueDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      if (diffDays <= 3) return "high";
+      if (diffDays <= 7) return "medium";
+      return "low";
+    };
+
+    const companyInfo = student.assigned_company
+      ? {
+          name: student.assigned_company.name || "N/A",
+          mentor: student.assigned_company.contact_person?.name || "N/A",
+          mentorEmail: student.assigned_company.contact_person?.email || "N/A",
+          jobTitle: student.assigned_company.job_title || "N/A",
+          address: student.assigned_company.company_address || "N/A",
+          status: student.assigned_company.isSuspended ? "suspended" : "active",
+        }
+      : null;
+
+    res.status(200).json({
+      stats: {
+        hours: {
+          total: totalApprovedHours,
+          required: requiredHours,
+          remaining: Math.max(0, requiredHours - totalApprovedHours),
+          percent: percentComplete,
+        },
+        logs: {
+          approved: approvedLogs,
+          pending: pendingLogs,
+        },
+        timesheets: {
+          pending: pendingTimesheets,
+        },
+        tasks: {
+          completed: completedTasks,
+        },
+        pendingApprovals: pendingLogs + pendingTimesheets,
+      },
+      recentActivity: {
+        logs: recentLogs,
+        timesheets: recentTimesheets,
+        tasks: recentTasks,
+      },
+      upcomingDeadlines: upcomingTasks.map((task) => ({
+        id: task._id,
+        title: task.title,
+        dueDate: task.dueDate,
+        status: task.status,
+        priority: getPriority(task.dueDate),
+      })),
+      companyInfo,
+    });
+  } catch (error) {
+    console.error("Student Dashboard Stats Error:", error);
+    res.status(500).json({
+      message: "Failed to load dashboard data",
+      error: error.message,
+    });
+  }
+};
+
 export {
   createWeeklyLog,
   getLogStats,
@@ -435,4 +742,7 @@ export {
   getStudentTimesheets,
   submitTimesheetsToDean,
   getStudentTasks,
+  updateMyTaskStatus,
+  getStudentDashboardStats,
+  submitLogToDean,
 };

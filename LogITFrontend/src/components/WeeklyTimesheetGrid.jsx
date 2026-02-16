@@ -1,23 +1,13 @@
 import React, { useState } from "react";
-import {
-  Clock,
-  Edit2,
-  Save,
-  X,
-  Plus,
-  CheckCircle,
-  AlertCircle,
-  Calendar,
-} from "lucide-react";
+import { Clock, Save, X, CheckCircle, AlertCircle, LogIn, LogOut } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 
 const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
-  const { api, user } = useAuth();
-  const role = user?.role || "student";
-  const { studentCanEdit = false, companyCanEdit = false } = permissions;
-  const [editingDay, setEditingDay] = useState(null);
-  const [editData, setEditData] = useState({});
+  const { api } = useAuth();
+  const { studentCanEdit = false } = permissions;
+  const [timingOutDay, setTimingOutDay] = useState(null);
+  const [timeoutData, setTimeoutData] = useState({ timeOut: "", dailyLog: "" });
   const [loading, setLoading] = useState(false);
 
   const daysOfWeek = [
@@ -60,64 +50,68 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
     };
   });
 
-  const handleEdit = (day) => {
-    // If entry exists, edit it
-    if (day.entry) {
-      setEditingDay(day.dateStr);
-      setEditData({
-        timeIn: day.entry.timeIn,
-        timeOut: day.entry.timeOut,
-        breakMinutes: day.entry.breakMinutes,
-      });
-    } else {
-      // If no entry, start creating a new one
-      setEditingDay(day.dateStr);
-      setEditData({
-        timeIn: "08:00",
-        timeOut: "17:00",
-        breakMinutes: 60,
-      });
-    }
-  };
+  const formatNow = () =>
+    new Date().toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
 
-  const handleSave = async (day) => {
-    if (!editData.timeIn || !editData.timeOut) {
-      toast.error("Please fill in all time fields");
-      return;
-    }
-
+  const handleTimeIn = async (day) => {
     setLoading(true);
     try {
-      if (day.entry) {
-        // Update existing entry
-        const response = await api.put(
-          `/student/timesheets/${day.entry._id}`,
-          editData,
-        );
-        onUpdate(day.entry._id, response.data);
-        toast.success("Entry updated successfully!");
-      } else {
-        // Create new entry
-        const newEntryData = {
-          date: day.date.toISOString(),
-          ...editData,
-        };
-        const response = await api.post("/student/timesheets", newEntryData);
-        onUpdate(null, response.data);
-        toast.success("Entry added successfully!");
-      }
-      setEditingDay(null);
-      setEditData({});
+      const response = await api.post("/student/timesheets", {
+        date: day.date.toISOString(),
+        timeIn: formatNow(),
+      });
+      onUpdate(null, response.data);
+      toast.success("Time in recorded");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to save entry");
+      toast.error(err.response?.data?.message || "Failed to record time in");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCancel = () => {
-    setEditingDay(null);
-    setEditData({});
+  const openTimeOutForm = (day) => {
+    setTimingOutDay(day.dateStr);
+    setTimeoutData({
+      timeOut: formatNow(),
+      dailyLog: day.entry?.dailyLog || "",
+    });
+  };
+
+  const handleTimeOutSave = async (day) => {
+    if (!timeoutData.timeOut) {
+      toast.error("Please provide time out");
+      return;
+    }
+
+    if (!timeoutData.dailyLog?.trim()) {
+      toast.error("Please enter accomplished tasks for today");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await api.put(`/student/timesheets/${day.entry._id}`, {
+        timeOut: timeoutData.timeOut,
+        dailyLog: timeoutData.dailyLog,
+      });
+      onUpdate(day.entry._id, response.data);
+      toast.success("Time out saved");
+      setTimingOutDay(null);
+      setTimeoutData({ timeOut: "", dailyLog: "" });
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to save time out");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelTimeOut = () => {
+    setTimingOutDay(null);
+    setTimeoutData({ timeOut: "", dailyLog: "" });
   };
 
   const getStatusBadge = (status) => {
@@ -138,20 +132,10 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
         text: "text-red-700",
         label: "Declined",
       },
-      submitted_to_dean: {
+      edited_by_company: {
         bg: "bg-blue-100",
         text: "text-blue-700",
-        label: "Dean",
-      },
-      dean_approved: {
-        bg: "bg-emerald-100",
-        text: "text-emerald-700",
-        label: "✓ Done",
-      },
-      dean_declined: {
-        bg: "bg-red-100",
-        text: "text-red-700",
-        label: "Declined",
+        label: "Edited",
       },
     };
     const config = statusConfig[status] || statusConfig.pending;
@@ -164,21 +148,21 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
     );
   };
 
-  const canEdit = (day) => {
-    if (role === "company") {
-      if (!companyCanEdit) return false;
-      return (
-        day.entry &&
-        ["submitted_to_company", "edited_by_company"].includes(day.entry.status)
-      );
-    }
-
+  const canClockIn = (day) => {
     if (!studentCanEdit) return false;
-    if (!day.entry) {
-      return !day.isFuture;
-    }
+    if (day.isFuture) return false;
+    return !day.entry;
+  };
 
+  const canClockOut = (day) => {
+    if (!studentCanEdit || !day.entry) return false;
+    if (day.entry.timeOut) return false;
     return ["pending", "company_declined"].includes(day.entry.status);
+  };
+
+  const isLocked = (day) => {
+    if (!day.entry) return false;
+    return !["pending", "company_declined"].includes(day.entry.status);
   };
 
   return (
@@ -199,7 +183,7 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
               Time Out
             </th>
             <th className="px-2 py-2 text-left text-xs font-bold text-gray-700 border-b-2 border-purple-200">
-              Break
+              Daily Tasks
             </th>
             <th className="px-2 py-2 text-left text-xs font-bold text-gray-700 border-b-2 border-purple-200">
               Hours
@@ -214,8 +198,7 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
         </thead>
         <tbody>
           {weekDays.map((day) => {
-            const isEditing = editingDay === day.dateStr;
-            const editable = canEdit(day);
+            const isTimingOut = timingOutDay === day.dateStr;
 
             return (
               <tr
@@ -258,16 +241,7 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
 
                 {/* Time In */}
                 <td className="px-2 py-2">
-                  {isEditing ? (
-                    <input
-                      type="time"
-                      value={editData.timeIn}
-                      onChange={(e) =>
-                        setEditData({ ...editData, timeIn: e.target.value })
-                      }
-                      className="w-full max-w-25 px-2 py-1 border border-purple-300 rounded text-xs focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    />
-                  ) : day.entry ? (
+                  {day.entry ? (
                     <span className="text-xs font-medium text-gray-800">
                       {day.entry.timeIn}
                     </span>
@@ -278,12 +252,15 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
 
                 {/* Time Out */}
                 <td className="px-2 py-2">
-                  {isEditing ? (
+                  {isTimingOut ? (
                     <input
                       type="time"
-                      value={editData.timeOut}
+                      value={timeoutData.timeOut}
                       onChange={(e) =>
-                        setEditData({ ...editData, timeOut: e.target.value })
+                        setTimeoutData((prev) => ({
+                          ...prev,
+                          timeOut: e.target.value,
+                        }))
                       }
                       className="w-full max-w-25 px-2 py-1 border border-purple-300 rounded text-xs focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
@@ -296,27 +273,24 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
                   )}
                 </td>
 
-                {/* Break Minutes */}
+                {/* Daily Tasks */}
                 <td className="px-2 py-2">
-                  {isEditing ? (
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        value={editData.breakMinutes}
-                        onChange={(e) =>
-                          setEditData({
-                            ...editData,
-                            breakMinutes: parseInt(e.target.value) || 0,
-                          })
-                        }
-                        className="w-full max-w-15 px-2 py-1 border border-purple-300 rounded text-xs focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        min="0"
-                      />
-                      <span className="text-[10px] text-gray-500">min</span>
-                    </div>
+                  {isTimingOut ? (
+                    <textarea
+                      value={timeoutData.dailyLog}
+                      onChange={(e) =>
+                        setTimeoutData((prev) => ({
+                          ...prev,
+                          dailyLog: e.target.value,
+                        }))
+                      }
+                      rows={2}
+                      placeholder="What tasks did you accomplish today?"
+                      className="w-full min-w-36 px-2 py-1 border border-purple-300 rounded text-xs focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
                   ) : day.entry ? (
-                    <span className="text-xs font-medium text-gray-800">
-                      {day.entry.breakMinutes} min
+                    <span className="text-xs text-gray-700 line-clamp-2">
+                      {day.entry.dailyLog?.trim() ? day.entry.dailyLog : "--"}
                     </span>
                   ) : (
                     <span className="text-xs text-gray-400">--</span>
@@ -329,7 +303,7 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
                     <div className="flex items-center gap-1">
                       <Clock className="text-purple-600" size={14} />
                       <span className="text-xs font-bold text-purple-600">
-                        {day.entry.totalHours || 0}h
+                        {Number(day.entry.totalHours || 0).toFixed(2)}h
                       </span>
                     </div>
                   ) : (
@@ -354,10 +328,10 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
 
                 {/* Actions */}
                 <td className="px-2 py-2">
-                  {isEditing ? (
+                  {isTimingOut ? (
                     <div className="flex gap-1 justify-center flex-wrap">
                       <button
-                        onClick={() => handleSave(day)}
+                        onClick={() => handleTimeOutSave(day)}
                         disabled={loading}
                         className="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-xs font-semibold disabled:opacity-50 flex items-center gap-1"
                       >
@@ -365,7 +339,7 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
                         <span className="hidden sm:inline">Save</span>
                       </button>
                       <button
-                        onClick={handleCancel}
+                        onClick={handleCancelTimeOut}
                         disabled={loading}
                         className="px-2 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors text-xs font-semibold flex items-center gap-1"
                       >
@@ -375,30 +349,32 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
                     </div>
                   ) : (
                     <div className="flex justify-center">
-                      {day.entry ? (
+                      {canClockOut(day) ? (
                         <button
-                          onClick={() => handleEdit(day)}
-                          disabled={!editable || loading}
-                          className={`px-2 py-1 rounded transition-colors text-xs font-semibold flex items-center gap-1 ${
-                            editable
-                              ? "bg-blue-500 text-white hover:bg-blue-600"
-                              : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                          }`}
+                          onClick={() => openTimeOutForm(day)}
+                          disabled={loading}
+                          className="px-2 py-1 rounded transition-colors text-xs font-semibold flex items-center gap-1 bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50"
                         >
-                          <Edit2 size={12} />
-                          <span className="hidden sm:inline">Edit</span>
+                          <LogOut size={12} />
+                          <span className="hidden sm:inline">Time Out</span>
                         </button>
-                      ) : !day.isFuture && studentCanEdit ? (
+                      ) : canClockIn(day) ? (
                         <button
-                          onClick={() => handleEdit(day)}
+                          onClick={() => handleTimeIn(day)}
                           disabled={loading}
                           className="px-2 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors text-xs font-semibold flex items-center gap-1 disabled:opacity-50"
                         >
-                          <Plus size={12} />
-                          <span className="hidden sm:inline">Add</span>
+                          <LogIn size={12} />
+                          <span className="hidden sm:inline">Time In</span>
                         </button>
+                      ) : isLocked(day) ? (
+                        <span className="text-green-600 text-xs font-semibold inline-flex items-center gap-1">
+                          <CheckCircle size={12} /> Locked
+                        </span>
                       ) : (
-                        <span className="text-gray-400 text-xs">--</span>
+                        <span className="text-amber-600 text-xs inline-flex items-center gap-1">
+                          <AlertCircle size={12} /> Waiting
+                        </span>
                       )}
                     </div>
                   )}

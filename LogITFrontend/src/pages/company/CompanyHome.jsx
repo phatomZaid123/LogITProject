@@ -25,7 +25,6 @@ const parseDate = (value) => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
-
 const getRelativeTime = (value) => {
   const date = parseDate(value);
   if (!date) return "Unknown";
@@ -40,20 +39,14 @@ const getRelativeTime = (value) => {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
-const getStatusBadge = (progress) => {
-  if (progress >= 85)
-    return { label: "Excellent", styles: "bg-emerald-100 text-emerald-700" };
-  if (progress >= 65)
-    return { label: "On Track", styles: "bg-blue-100 text-blue-700" };
-  return { label: "Needs Attention", styles: "bg-amber-100 text-amber-700" };
-};
-
 function CompanyHome() {
-  const { api } = useAuth();
+  const { api, user } = useAuth();
   const [students, setStudents] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
+
+
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
@@ -68,7 +61,9 @@ function CompanyHome() {
       setPending(pendingRes.data || []);
     } catch (error) {
       console.error("Company dashboard fetch error:", error);
-      toast.error(error.response?.data?.message || "Failed to load dashboard data");
+      toast.error(
+        error.response?.data?.message || "Failed to load dashboard data",
+      );
     } finally {
       setLoading(false);
     }
@@ -157,7 +152,7 @@ function CompanyHome() {
     {
       title: "Approved Hours",
       value: `${summary.hoursTracked.toFixed(1)}h`,
-      subtext: "Dean-approved to date",
+      subtext: "Company-approved to date",
       icon: Clock,
       gradient: "from-emerald-500 to-teal-500",
     },
@@ -181,32 +176,25 @@ function CompanyHome() {
             OJT Performance Dashboard
           </h1>
           <p className="text-gray-600 max-w-2xl mt-2">
-            Get a live snapshot of every intern, their approved hours, pending submissions, and the tasks driving their outcomes.
+            Get a live snapshot of every intern, their approved hours, pending
+            submissions, and the tasks driving their outcomes.
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-3">
-          <Button
-            variant="outline"
-            onClick={fetchDashboard}
-            className="border-blue-200 text-blue-700"
-            disabled={loading}
-          >
-            <RefreshCcw size={18} className="mr-2" />
-            Refresh
-          </Button>
-          <Button variant="primary" onClick={() => (window.location.href = "/company/tasks")}> 
-            Assign Task
-          </Button>
-        </div>
+       
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((card) => {
           const Icon = card.icon;
           return (
-            <Card key={card.title} className="border-none shadow-lg overflow-hidden">
-              <CardContent className={`bg-linear-to-br ${card.gradient} text-white p-6`}> 
+            <Card
+              key={card.title}
+              className="border-none shadow-lg overflow-hidden"
+            >
+              <CardContent
+                className={`bg-linear-to-br ${card.gradient} text-white p-6`}
+              >
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-sm text-white/70">{card.title}</p>
@@ -230,12 +218,11 @@ function CompanyHome() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Intern Progress Monitor</CardTitle>
-                  <CardDescription>Dean-approved hours versus requirements</CardDescription>
+                  <CardDescription>
+                    Company-approved hours versus requirements
+                  </CardDescription>
                 </div>
-                <div className="hidden md:flex items-center gap-2 text-sm text-gray-500">
-                  <LineChart size={16} />
-                  Live data
-                </div>
+               
               </div>
             </CardHeader>
             <CardContent padding="none">
@@ -253,13 +240,19 @@ function CompanyHome() {
                   <tbody className="divide-y bg-white">
                     {loading ? (
                       <tr>
-                        <td colSpan={5} className="px-6 py-6 text-center text-gray-500">
+                        <td
+                          colSpan={5}
+                          className="px-6 py-6 text-center text-gray-500"
+                        >
                           Fetching students...
                         </td>
                       </tr>
                     ) : students.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-6 py-6 text-center text-gray-500">
+                        <td
+                          colSpan={5}
+                          className="px-6 py-6 text-center text-gray-500"
+                        >
                           No interns are assigned to your company yet.
                         </td>
                       </tr>
@@ -271,13 +264,16 @@ function CompanyHome() {
                           100,
                           Math.round((completed / required) * 100) || 0,
                         );
-                        const badge = getStatusBadge(progress);
-                        const taskCount = taskCountByStudent[student._id?.toString()] || 0;
+
+                        const taskCount =
+                          taskCountByStudent[student._id?.toString()] || 0;
 
                         return (
                           <tr key={student._id} className="hover:bg-gray-50">
                             <td className="px-6 py-4">
-                              <div className="font-semibold text-gray-900">{student.name}</div>
+                              <div className="font-semibold text-gray-900">
+                                {student.name}
+                              </div>
                               <p className="text-xs text-gray-500">
                                 {student.student_course || "Program"}
                               </p>
@@ -303,9 +299,9 @@ function CompanyHome() {
                             </td>
                             <td className="px-6 py-4">{taskCount}</td>
                             <td className="px-6 py-4">
-                              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${badge.styles}`}>
-                                {badge.label}
-                              </span>
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-semibold `}
+                              ></span>
                             </td>
                           </tr>
                         );
@@ -318,63 +314,7 @@ function CompanyHome() {
           </Card>
         </div>
 
-        <div className="space-y-6">
-          <Card elevated>
-            <CardHeader withBorder>
-              <CardTitle>Pending Approvals</CardTitle>
-              <CardDescription>Students awaiting company review</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {loading ? (
-                <p className="text-sm text-gray-500">Loading queue...</p>
-              ) : pending.length === 0 ? (
-                <p className="text-sm text-gray-500">Nothing pending. Nice work!</p>
-              ) : (
-                pending.map((item) => (
-                  <div
-                    key={item._id}
-                    className="border border-gray-200 rounded-xl p-3 flex items-center justify-between"
-                  >
-                    <div>
-                      <p className="font-semibold text-gray-900">{item.name}</p>
-                      <p className="text-xs text-gray-500">{item.email}</p>
-                    </div>
-                    <span className="text-xs font-semibold text-amber-600">
-                      {item.submittedCount} entries
-                    </span>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-
-          <Card elevated>
-            <CardHeader withBorder>
-              <CardTitle>
-                <div className="flex items-center gap-2">
-                  <Bell size={18} /> Recent Activity
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {loading ? (
-                <p className="text-sm text-gray-500">Gathering updates...</p>
-              ) : recentActivity.length === 0 ? (
-                <p className="text-sm text-gray-500">No task activity just yet.</p>
-              ) : (
-                recentActivity.map((activity, idx) => (
-                  <div key={`${activity.title}-${idx}`} className="border-b pb-2 last:border-0">
-                    <p className="text-sm font-semibold text-gray-900">{activity.title}</p>
-                    <p className="text-xs text-gray-500">
-                      {activity.student} • {activity.status.replace("-", " ")}
-                    </p>
-                    <p className="text-xs text-gray-400">{activity.timestamp}</p>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
+       
       </div>
     </div>
   );

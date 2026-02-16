@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import Button from "./ui/Button";
 
 export default function StudentProfile() {
   const { id } = useParams();
@@ -44,6 +45,21 @@ export default function StudentProfile() {
       fetchStudentData();
     }
   }, [id, api]);
+
+  const markAsCompleted = async () => {
+    try {
+      await api.put(`/dean/students/${id}/complete`);
+      toast.success("Student marked as completed");
+     
+      const response = await api.get(`/dean/student/${id}`);
+      setStudent(response.data);
+    } catch (err) {
+      console.error("Error marking student as completed:", err);
+      const errorMsg =
+        err.response?.data?.message || "Failed to mark student as completed";
+      toast.error(errorMsg);
+    }
+  };
 
   if (loading) {
     return (
@@ -242,13 +258,20 @@ export default function StudentProfile() {
               count={totalTimesheets}
             />
           </div>
-
           <div className="p-6">
             {activeTab === "logs" ? (
               <StudentLogTable logs={student.logs || []} />
             ) : (
               <StudentTimeTable timesheets={student.timesheets || []} />
             )}
+            <div className="text-right">
+              <Button 
+              className="justify-center m-2 "
+              onClick={markAsCompleted}>
+                {" "}
+                Mark as Completed
+              </Button>
+            </div>
           </div>
         </div>
       </div>

@@ -51,7 +51,7 @@ const buildApprovedHoursMap = async (studentIds = []) => {
         student: {
           $in: studentIds.map((id) => new mongoose.Types.ObjectId(id)),
         },
-        status: "dean_approved",
+        status: "company_approved",
       },
     },
     {
@@ -567,7 +567,7 @@ const getStudentById = async (req, res) => {
     });
 
     const approvedHours = timesheets
-      .filter((entry) => entry.status === "dean_approved")
+      .filter((entry) => entry.status === "company_approved")
       .reduce((sum, entry) => sum + (entry.totalHours || 0), 0);
     const requiredHours = student.ojt_hours_required || 500;
 
@@ -627,27 +627,60 @@ const reviewStudentLog = async (req, res) => {
 // @desc    Get all pending logbooks submitted to dean
 const getPendingLogs = async (req, res) => {
   try {
-    const pendingLogs = await LOGBOOK.find({ status: "pending" })
-      .populate("created_by", "name email student_admission_number _id")
-      .sort({ createdAt: 1 }); // Oldest first (FIFO)
-
-    res.status(200).json(pendingLogs);
+    res.status(200).json([]);
   } catch (error) {
     res.status(500).json({ message: "Error fetching pending logs" });
+  }
+};
+
+// @desc    Mark student as completed
+// @route   PUT /api/dean/students/:id/complete
+const markStudentCompleted = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const ojtHours = await TIMESHEET.aggregate([
+      {
+        $match: {
+          student: new mongoose.Types.ObjectId(id),
+          status: "company_approved",
+        },
+      },
+      { $group: { _id: "$student", totalHours: { $sum: "$totalHours" } } },
+    ]);
+    if (ojtHours.length === 0 || ojtHours[0].totalHours < 500) {
+      return res.status(400).json({
+        message: "Student has not completed the required OJT hours",
+      });
+    }
+
+    const student = await Student.findByIdAndUpdate(
+      id,
+      { completed_program: true },
+      { new: true, runValidators: true },
+    ).select(
+      "name email student_admission_number student_course completed_program",
+    );
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Student marked as completed",
+      data: student,
+    });
+  } catch (error) {
+    console.error("Mark Student Completed Error:", error);
+    res.status(500).json({ message: "Failed to mark student as completed" });
   }
 };
 
 // @desc    Get all pending timesheets submitted to dean
 const getPendingTimesheets = async (req, res) => {
   try {
-    const pendingTimesheets = await TIMESHEET.find({
-      status: "submitted_to_dean",
-    })
-      .populate("student", "name email student_admission_number")
-      .populate("company", "name")
-      .sort({ date: 1 });
-
-    res.status(200).json(pendingTimesheets);
+    res.status(200).json([]);
   } catch (error) {
     res.status(500).json({ message: "Error fetching pending timesheets" });
   }
@@ -732,9 +765,10 @@ const getDashboardStats = async (req, res) => {
       (student) => student.assigned_company,
     ).length;
     const unassignedStudents = totalStudents - activeStudents;
-    const completedStudents = batchStudents.filter(
-      (student) => student.completed_program,
-    ).length;
+    const completedStudents = await Student.countDocuments({
+      student_batch: activeBatch._id,
+      completed_program: true,
+    });
 
     const assignedCompanyIds = Array.from(
       new Set(
@@ -753,19 +787,9 @@ const getDashboardStats = async (req, res) => {
         })
       : 0;
 
-    const pendingLogs = studentIds.length
-      ? await LOGBOOK.countDocuments({
-          status: "pending",
-          created_by: { $in: studentIds },
-        })
-      : 0;
+    const pendingLogs = 0;
 
-    const pendingTimesheets = studentIds.length
-      ? await TIMESHEET.countDocuments({
-          status: "submitted_to_dean",
-          student: { $in: studentIds },
-        })
-      : 0;
+    const pendingTimesheets = 0;
 
     const recentLogs = studentIds.length
       ? await LOGBOOK.find({ created_by: { $in: studentIds } })
@@ -1019,4 +1043,5 @@ export {
   suspendCompany,
   unsuspendCompany,
   getCompaniesByStatus,
+  markStudentCompleted,
 };

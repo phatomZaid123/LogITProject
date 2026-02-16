@@ -11,6 +11,7 @@ import authRoutes from "./routes/authRoutes.js";
 import companyRoutes from "./routes/companyRoutes.js";
 import studentRoutes from "./routes/studentRoutes.js";
 import complaintRoutes from "./routes/complaintRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 // Load environment variables
 dotenv.config();
 
@@ -45,6 +46,8 @@ app.use("/api/student", studentRoutes);
 app.use("/api/company", companyRoutes);
 // Complaint Routes
 app.use("/api/complaints", complaintRoutes);
+// Notification Routes
+app.use("/api/notifications", notificationRoutes);
 // Connect to the database then Start server
 connectDB().then(() => {
   app.listen(PORT, () => {

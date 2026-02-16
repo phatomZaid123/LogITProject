@@ -13,7 +13,6 @@ import Button from "../../components/ui/Button";
 import {
   Users,
   Building2,
-  Clock,
   CheckCircle,
   AlertCircle,
   Calendar,
@@ -25,13 +24,15 @@ import toast from "react-hot-toast";
 import DeanChatbot from "../../components/DeanChatbot";
 
 function DashboardHome() {
-  const { api } = useAuth();
+  const { api, user } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [pendingItems, setPendingItems] = useState([]);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const summaryRef = useRef(null);
+
+
 
   // Fetch dashboard statistics
   useEffect(() => {
@@ -43,39 +44,26 @@ function DashboardHome() {
         const statsRes = await api.get("/dean/dashboard/stats");
         setStats(statsRes.data);
         console.log("Dashboard Stats:", statsRes.data);
-        // Fetch pending logs
-        const logsRes = await api.get("/dean/logs/pending");
-        const pendingLogs = logsRes.data.slice(0, 5).map((log) => ({
-          id: log._id,
-          type: "logbook",
-          student: log.created_by?.name || "Unknown",
-          admissionNumber: log.created_by?.student_admission_number || "N/A",
-          date: new Date(log.createdAt).toLocaleDateString(),
-          weekNumber: log.weekNumber,
-          status: log.status,
-        }));
 
-        // Fetch pending timesheets
-        const timesheetsRes = await api.get("/dean/timesheets/pending");
-        const pendingTimesheets = timesheetsRes.data
-          .slice(0, 5)
-          .map((timesheet) => ({
-            id: timesheet._id,
-            type: "timesheet",
-            student: timesheet.student?.name || "Unknown",
-            admissionNumber:
-              timesheet.student?.student_admission_number || "N/A",
-            date: new Date(timesheet.date).toLocaleDateString(),
-            hours: timesheet.totalHours,
-            status: timesheet.status,
+        const studentsRes = await api.get("/dean/getAllStudents");
+        const students = studentsRes.data?.students || [];
+
+        const completionQueue = students
+          .filter(
+            (student) =>
+              !student.completed_program &&
+              Number(student.ojt_hours_remaining || 0) <= 0,
+          )
+          .slice(0, 8)
+          .map((student) => ({
+            id: student._id,
+            student: student.name || "Unknown",
+            admissionNumber: student.student_admission_number || "N/A",
+            approvedHours: Number(student.ojt_hours_completed || 0),
+            requiredHours: Number(student.ojt_hours_required || 500),
           }));
 
-        // Combine and sort by date
-        const combined = [...pendingLogs, ...pendingTimesheets]
-          .sort((a, b) => new Date(b.date) - new Date(a.date))
-          .slice(0, 8);
-
-        setPendingItems(combined);
+        setPendingItems(completionQueue);
         setLoading(false);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
@@ -207,26 +195,26 @@ function DashboardHome() {
         </div>
       )}
 
-      {/* Pending Approvals Table */}
+      {/* Completion Review Table */}
       <Card elevated className="shadow-lg">
         <CardHeader withBorder className="bg-gray-50">
           <div className="flex justify-between items-center">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <AlertCircle className="text-amber-500" size={24} />
-                Pending Approvals
+                Ready for Completion Review
               </CardTitle>
               <CardDescription>
-                Review and approve student submissions
+                Students who completed required OJT hours
               </CardDescription>
             </div>
             {pendingItems.length > 0 && (
               <Button
                 size="sm"
                 variant="primary"
-                onClick={() => navigate("/dean/dashboard/reports")}
+                onClick={() => navigate("/dean/dashboard/students")}
               >
-                View All
+                View Students
               </Button>
             )}
           </div>
@@ -240,8 +228,10 @@ function DashboardHome() {
           ) : pendingItems.length === 0 ? (
             <div className="p-10 text-center text-gray-500">
               <CheckCircle className="mx-auto mb-3 text-green-500" size={48} />
-              <p className="font-medium">All caught up!</p>
-              <p className="text-sm">No pending approvals at the moment.</p>
+              <p className="font-medium">No completion requests yet</p>
+              <p className="text-sm">
+                Students will appear here once they reach required hours.
+              </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -249,16 +239,10 @@ function DashboardHome() {
                 <thead className="bg-gray-50 border-b">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">
-                      Type
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">
                       Student
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">
-                      Details
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">
-                      Date
+                      Approved Hours
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700">
                       Action
@@ -268,22 +252,6 @@ function DashboardHome() {
                 <tbody className="divide-y divide-gray-100">
                   {pendingItems.map((item) => (
                     <tr key={item.id} className="hover:bg-gray-50 transition">
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${
-                            item.type === "logbook"
-                              ? "bg-purple-100 text-purple-700"
-                              : "bg-blue-100 text-blue-700"
-                          }`}
-                        >
-                          {item.type === "logbook" ? (
-                            <BookOpen size={12} />
-                          ) : (
-                            <Clock size={12} />
-                          )}
-                          {item.type === "logbook" ? "Logbook" : "Timesheet"}
-                        </span>
-                      </td>
                       <td className="px-6 py-4">
                         <div>
                           <p className="font-medium text-gray-900">
@@ -295,18 +263,15 @@ function DashboardHome() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        {item.type === "logbook"
-                          ? `Week ${item.weekNumber || "N/A"}`
-                          : `${item.hours || 0} hours`}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {item.date}
+                        {item.approvedHours.toFixed(1)} / {item.requiredHours.toFixed(1)} h
                       </td>
                       <td className="px-6 py-4 text-center">
                         <Button
                           size="sm"
                           variant="primary"
-                          onClick={() => navigate("/dean/dashboard/reports")}
+                          onClick={() =>
+                            navigate(`/dean/dashboard/studentprofile/${item.id}`)
+                          }
                         >
                           Review
                         </Button>

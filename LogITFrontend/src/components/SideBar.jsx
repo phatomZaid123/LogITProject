@@ -34,8 +34,6 @@ function SideBar({ children }) {
         icon: FileText,
       },
       { label: "Timesheet", path: "/student/dashboard/timesheet", icon: Clock },
-      { label: "Tasks", path: "/student/dashboard/tasks", icon: CheckCircle2 },
-      { label: "Reports", path: "/student/dashboard/reports", icon: BarChart3 },
     ],
 
     dean: [
@@ -51,7 +49,7 @@ function SideBar({ children }) {
         path: "/dean/dashboard/alumini",
         icon: Users,
       },
-      { label: "Reports", path: "/dean/dashboard/reports", icon: BarChart3 },
+     
       {
         label: "Complaints",
         path: "/dean/dashboard/complaints",
@@ -63,7 +61,7 @@ function SideBar({ children }) {
     company: [
       { label: "Dashboard", path: "/company/dashboard", icon: Home },
       { label: "Interns", path: "/company/dashboard/interns", icon: Users },
-      { label: "Tasks", path: "/company/dashboard/tasks", icon: CheckCircle2 },
+
       {
         label: "Intern Reports",
         path: "/company/dashboard/reports",

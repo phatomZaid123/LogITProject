@@ -1,4 +1,8 @@
 import Complaint from "../models/complaint.js";
+import {
+  createNotification,
+  createNotificationsForRole,
+} from "../utils/notificationUtils.js";
 
 const trimOrEmpty = (value = "") => value.trim();
 
@@ -31,6 +35,17 @@ export const createComplaint = async (req, res) => {
           body: trimOrEmpty(details),
         },
       ],
+    });
+
+    await createNotificationsForRole("dean", {
+      type: "complaint_submitted",
+      title: "New company complaint",
+      message: `${companyUser.company_name || companyUser.name} submitted a complaint: ${complaint.subject}`,
+      link: "/dean/dashboard/complaints",
+      data: {
+        complaintId: complaint._id,
+        companyId: companyUser._id,
+      },
     });
 
     return res.status(201).json({ complaint });
@@ -86,6 +101,18 @@ export const replyToComplaint = async (req, res) => {
     });
     complaint.status = "responded";
     await complaint.save();
+
+    await createNotification({
+      recipient: complaint.company,
+      recipientRole: "company",
+      type: "complaint_replied",
+      title: "Dean replied to your complaint",
+      message: `Dean replied to complaint: ${complaint.subject}`,
+      link: "/company/dashboard/complaints",
+      data: {
+        complaintId: complaint._id,
+      },
+    });
 
     return res.json({ complaint });
   } catch (error) {

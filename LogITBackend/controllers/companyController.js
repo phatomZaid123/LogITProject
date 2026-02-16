@@ -2,6 +2,7 @@ import Student from "../models/student.js";
 import { TIMESHEET } from "../models/timesheet.js";
 import { TASK } from "../models/task.js";
 import mongoose from "mongoose";
+import { createNotification } from "../utils/notificationUtils.js";
 
 const buildApprovedHoursMap = async (studentIds = []) => {
   if (!studentIds.length) return {};
@@ -12,7 +13,7 @@ const buildApprovedHoursMap = async (studentIds = []) => {
         student: {
           $in: studentIds.map((id) => new mongoose.Types.ObjectId(id)),
         },
-        status: "dean_approved",
+        status: "company_approved",
       },
     },
     {
@@ -346,6 +347,19 @@ const createTask = async (req, res) => {
       assigned_to: studentId,
       created_by_company: companyId,
       companyAttachments: attachments,
+    });
+
+    await createNotification({
+      recipient: studentId,
+      recipientRole: "student",
+      type: "task_assigned",
+      title: "New task assigned",
+      message: `${req.user?.name || "Your company"} assigned you a new task: ${title}`,
+      link: "/student/dashboard/tasks",
+      data: {
+        taskId: task._id,
+        companyId,
+      },
     });
 
     await task.populate("assigned_to", "name email student_admission_number");

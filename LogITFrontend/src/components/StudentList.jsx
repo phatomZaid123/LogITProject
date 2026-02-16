@@ -1,13 +1,9 @@
 import { Link } from "react-router-dom";
 
-function StudentList({
-  selectedBatchId = "",
-  selectedCourse = "",
-  students = [],
-  loading = false,
-}) {
-  // No filtering needed here - filtering is handled by API and parent component
-  // Just display the students as received
+function StudentList({ students = [], loading = false }) {
+  
+  console.log("Rendering StudentList with students:", students, "and loading:", loading);
+  
   return (
     <div className="w-full bg-linear-to-b from-gray-50 to-white rounded-lg px-0 py-0 text-gray-900">
       {loading ? (
@@ -47,12 +43,7 @@ function StudentList({
                 >
                   Course
                 </th>
-                <th
-                  scope="col"
-                  className="px-6 py-4 font-semibold text-gray-800"
-                >
-                  Batch
-                </th>
+
                 <th
                   scope="col"
                   className="px-6 py-4 font-semibold text-gray-800"
@@ -114,15 +105,6 @@ function StudentList({
                       </Link>
                     </td>
 
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                      <Link
-                        to={`/dean/dashboard/studentprofile/${student._id}`}
-                        className="hover:text-purple-600 transition-colors"
-                      >
-                        {student.student_batch?.session_name || "N/A"}
-                      </Link>
-                    </td>
-
                     <td className="px-6 py-4 font-medium text-indigo-600 whitespace-nowrap">
                       {student.assigned_company_id ? (
                         <Link
@@ -168,7 +150,7 @@ function StudentList({
                                 : "bg-gray-100 text-gray-700"
                           }`}
                         >
-                          {student.ojt_status || "pending"}
+                          {student.ojt_status || "Ongoing"}
                         </span>
                       </Link>
                     </td>
@@ -182,5 +164,4 @@ function StudentList({
     </div>
   );
 }
-
 export default StudentList;

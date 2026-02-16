@@ -51,6 +51,18 @@ function StudentLogbook() {
     setExpandedEntry(expandedEntry === id ? null : id);
   };
 
+  const submitToCompany = async (entryId) => {
+    try {
+      await api.put(`/student/logs/${entryId}/submit`);
+      toast.success("Log submitted to company for review.");
+      fetchLogs();
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || "Failed to submit log to company.",
+      );
+    }
+  };
+
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString("en-US", {
       month: "short",
@@ -80,7 +92,7 @@ function StudentLogbook() {
             My OJT Logbook
           </h1>
           <p className="text-gray-500 mt-1">
-            Document your weekly OJT progress and receive Dean's feedback.
+            Document your weekly OJT progress and receive company feedback.
           </p>
         </div>
         <div className="flex gap-3">
@@ -156,6 +168,7 @@ function StudentLogbook() {
               isExpanded={expandedEntry === entry._id}
               onToggle={() => toggleEntry(entry._id)}
               formatDate={formatDate}
+              onSubmitToDean={() => submitToCompany(entry._id)}
             />
           ))
         )}
@@ -165,7 +178,13 @@ function StudentLogbook() {
 }
 
 // Logbook Entry Component
-const LogbookEntry = ({ entry, isExpanded, onToggle, formatDate }) => {
+const LogbookEntry = ({
+  entry,
+  isExpanded,
+  onToggle,
+  formatDate,
+  onSubmitToDean,
+}) => {
   const questions = [
     { label: "Duties and Responsibilities", key: "dutiesAndResponsibilities" },
     { label: "New Things Learned", key: "newThingsLearned" },
@@ -209,6 +228,18 @@ const LogbookEntry = ({ entry, isExpanded, onToggle, formatDate }) => {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {entry.status === "draft" && (
+            <Button
+              size="sm"
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+              onClick={(event) => {
+                event.stopPropagation();
+                onSubmitToDean();
+              }}
+            >
+              Submit to Company
+            </Button>
+          )}
           <StatusBadge status={entry.status} />
           {isExpanded ? (
             <ChevronUp className="text-gray-600" size={24} />
@@ -262,7 +293,7 @@ const LogbookEntry = ({ entry, isExpanded, onToggle, formatDate }) => {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="text-sm font-bold text-blue-900 mb-2 flex items-center gap-2">
                   <MessageCircle size={16} />
-                  Dean's Feedback
+                  Reviewer Feedback
                 </h4>
                 <p className="text-sm text-blue-800">{entry.deanFeedback}</p>
               </div>
@@ -286,6 +317,7 @@ const StatItem = ({ label, value, color }) => (
 
 const StatusBadge = ({ status }) => {
   const styles = {
+    draft: "bg-slate-100 text-slate-700 border-slate-200",
     approved: "bg-green-100 text-green-700 border-green-200",
     pending: "bg-amber-100 text-amber-700 border-amber-200",
     declined: "bg-red-100 text-red-700 border-red-200",
