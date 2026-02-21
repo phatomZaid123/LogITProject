@@ -1,6 +1,7 @@
 import Student from "../models/student.js";
 import { TIMESHEET } from "../models/timesheet.js";
 import { TASK } from "../models/task.js";
+import { LOGBOOK } from "../models/logbook.js";
 import mongoose from "mongoose";
 import { createNotification } from "../utils/notificationUtils.js";
 
@@ -13,7 +14,8 @@ const buildApprovedHoursMap = async (studentIds = []) => {
         student: {
           $in: studentIds.map((id) => new mongoose.Types.ObjectId(id)),
         },
-        status: "company_approved",
+        timeOut: { $exists: true, $ne: "" },
+        totalHours: { $gt: 0 },
       },
     },
     {
@@ -202,6 +204,21 @@ export const approveAllStudentEntries = async (req, res) => {
       { $set: { status: "company_approved" } },
     );
 
+    if (result.modifiedCount > 0) {
+      await createNotification({
+        recipient: studentId,
+        recipientRole: "student",
+        type: "timesheet_reviewed",
+        title: "Timesheets approved",
+        message: `Your company approved ${result.modifiedCount} submitted timesheet entr${result.modifiedCount === 1 ? "y" : "ies"}.`,
+        link: "/student/dashboard/timesheet",
+        data: {
+          studentId,
+          approvedCount: result.modifiedCount,
+        },
+      });
+    }
+
     res.status(200).json({
       message: `Successfully approved ${result.modifiedCount} entries.`,
     });
@@ -254,8 +271,136 @@ export const companyReviewTimesheet = async (req, res) => {
     if (companyNotes !== undefined) entry.companyNotes = companyNotes;
 
     await entry.save();
+
+    await createNotification({
+      recipient: entry.student,
+      recipientRole: "student",
+      type: "timesheet_reviewed",
+      title: "Timesheet reviewed",
+      message:
+        entry.status === "company_approved"
+          ? "Your timesheet was approved by your company."
+          : entry.status === "company_declined"
+            ? "Your timesheet was declined by your company."
+            : "Your timesheet was edited by your company.",
+      link: "/student/dashboard/timesheet",
+      data: {
+        entryId: entry._id,
+        status: entry.status,
+      },
+    });
+
     res.status(200).json(entry);
   } catch (error) {
+    res.status(500).json({ message: "Review failed", error: error.message });
+  }
+};
+
+// Get assigned student's logbooks for company review
+const getStudentLogsForCompany = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const companyId = req.user._id;
+
+    if (!studentId || studentId === "undefined") {
+      return res.status(400).json({ message: "Student ID is required" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ message: "Invalid Student ID format" });
+    }
+
+    const student =
+      await Student.findById(studentId).select("assigned_company");
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    if (student.assigned_company?.toString() !== companyId.toString()) {
+      return res
+        .status(403)
+        .json({ message: "This student is not assigned to your company" });
+    }
+
+    const logs = await LOGBOOK.find({ created_by: studentId }).sort({
+      createdAt: -1,
+    });
+
+    res.status(200).json(logs);
+  } catch (error) {
+    console.error("Get Student Logs Error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Company review for a submitted logbook entry
+const companyReviewLogbook = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, feedback } = req.body;
+    const companyId = req.user._id;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid logbook ID format" });
+    }
+
+    if (!["approved", "declined"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status update" });
+    }
+
+    const log = await LOGBOOK.findById(id);
+    if (!log) {
+      return res.status(404).json({ message: "Logbook entry not found" });
+    }
+
+    const student = await Student.findById(log.created_by).select(
+      "assigned_company",
+    );
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    if (student.assigned_company?.toString() !== companyId.toString()) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to review this logbook" });
+    }
+
+    if (log.status !== "pending") {
+      return res.status(400).json({
+        message: "Only pending logbook entries can be reviewed",
+      });
+    }
+
+    log.status = status;
+    if (feedback !== undefined) {
+      log.deanFeedback = feedback;
+    }
+    await log.save();
+
+    await createNotification({
+      recipient: log.created_by,
+      recipientRole: "student",
+      type: "logbook_reviewed",
+      title: "Logbook reviewed",
+      message:
+        status === "approved"
+          ? "Your logbook was approved by your company."
+          : "Your logbook was declined by your company.",
+      link: "/student/dashboard/logbook",
+      data: {
+        logId: log._id,
+        status,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Logbook ${status}`,
+      data: log,
+    });
+  } catch (error) {
+    console.error("Company Review Logbook Error:", error);
     res.status(500).json({ message: "Review failed", error: error.message });
   }
 };
@@ -296,6 +441,56 @@ const getStudentTimesheets = async (req, res) => {
   } catch (error) {
     console.error("Get Student Timesheets Error:", error);
     res.status(500).json({ message: error.message });
+  }
+};
+
+const getAssignedStudentProfile = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const companyId = req.user?._id;
+
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ message: "Invalid student ID format" });
+    }
+
+    const student = await Student.findById(studentId)
+      .select("-password -createdAt -updatedAt -__v -role")
+      .populate("student_batch", "session_name year")
+      .populate("assigned_company", "name company_address");
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    if (student.assigned_company?._id?.toString() !== companyId.toString()) {
+      return res
+        .status(403)
+        .json({ message: "This student is not assigned to your company" });
+    }
+
+    const [logs, timesheets] = await Promise.all([
+      LOGBOOK.find({ created_by: studentId }).sort({ createdAt: -1 }),
+      TIMESHEET.find({ student: studentId }).sort({ date: -1 }),
+    ]);
+
+    const approvedHours = timesheets
+      .filter((entry) => entry.timeOut && Number(entry.totalHours || 0) > 0)
+      .reduce((sum, entry) => sum + (entry.totalHours || 0), 0);
+
+    const requiredHours = Number(student.ojt_hours_required || 500);
+
+    const studentData = {
+      ...student.toObject(),
+      logs,
+      timesheets,
+      ojt_hours_completed: approvedHours,
+      ojt_hours_remaining: Math.max(0, requiredHours - approvedHours),
+    };
+
+    res.status(200).json(studentData);
+  } catch (error) {
+    console.error("Get Assigned Student Profile Error:", error);
+    res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
 
@@ -347,19 +542,6 @@ const createTask = async (req, res) => {
       assigned_to: studentId,
       created_by_company: companyId,
       companyAttachments: attachments,
-    });
-
-    await createNotification({
-      recipient: studentId,
-      recipientRole: "student",
-      type: "task_assigned",
-      title: "New task assigned",
-      message: `${req.user?.name || "Your company"} assigned you a new task: ${title}`,
-      link: "/student/dashboard/tasks",
-      data: {
-        taskId: task._id,
-        companyId,
-      },
     });
 
     await task.populate("assigned_to", "name email student_admission_number");
@@ -451,6 +633,9 @@ export {
   assignStudentToCompany,
   assignedInterns,
   getStudentTimesheets,
+  getStudentLogsForCompany,
+  companyReviewLogbook,
+  getAssignedStudentProfile,
   createTask,
   getCompanyTasks,
   updateTaskStatus,

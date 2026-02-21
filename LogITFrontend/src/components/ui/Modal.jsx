@@ -3,10 +3,28 @@ import Button from "./Button";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
 
+const normalizeText = (value = "") => value.trim().replace(/\s+/g, " ");
+const normalizeEmail = (value = "") => normalizeText(value).toLowerCase();
+const getPasswordStrength = (password = "") => {
+  let score = 0;
+  if (password.length >= 8) score += 1;
+  if (/[A-Z]/.test(password)) score += 1;
+  if (/[a-z]/.test(password)) score += 1;
+  if (/\d/.test(password)) score += 1;
+  if (/[^A-Za-z0-9]/.test(password)) score += 1;
+
+  if (score <= 2) return { label: "Weak", color: "text-red-600" };
+  if (score <= 4) return { label: "Medium", color: "text-amber-600" };
+  return { label: "Strong", color: "text-green-600" };
+};
+
 const ModalForm = ({ onClose, title, batches, onBatchCreated }) => {
   const [loading, setLoading] = useState(false);
   const [activeBatch, setActiveBatch] = useState("");
+  const [companyPassword, setCompanyPassword] = useState("");
+  const [companyConfirmPassword, setCompanyConfirmPassword] = useState("");
   const { api } = useAuth();
+  const passwordStrength = getPasswordStrength(companyPassword);
 
   // Fetch and set the active batch when modal opens
   useEffect(() => {
@@ -101,6 +119,12 @@ const ModalForm = ({ onClose, title, batches, onBatchCreated }) => {
       }
     } catch (error) {
       console.error("Submission failed:", error);
+      const errorMessage =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message ||
+        "An unexpected error occurred";
+      toast.error(`Batch creation failed: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -111,7 +135,19 @@ const ModalForm = ({ onClose, title, batches, onBatchCreated }) => {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const data = Object.fromEntries(formData.entries());
+    const rawData = Object.fromEntries(formData.entries());
+    const data = {
+      companyName: normalizeText(rawData.companyName),
+      companyEmail: normalizeEmail(rawData.companyEmail),
+      companyPassword: rawData.companyPassword,
+      confirmPassword: rawData.companyConfirmPassword,
+      companyAddress: normalizeText(rawData.companyAddress),
+      companyContactPersonName: normalizeText(rawData.companyContactPersonName),
+      companyContactPersonEmail: normalizeEmail(
+        rawData.companyContactPersonEmail,
+      ),
+      jobTittle: normalizeText(rawData.jobTittle),
+    };
 
     if (
       !data.companyName?.trim() ||
@@ -124,6 +160,12 @@ const ModalForm = ({ onClose, title, batches, onBatchCreated }) => {
     ) {
       setLoading(false);
       return alert("Check your inputs!");
+    }
+
+    if (data.companyPassword !== data.confirmPassword) {
+      setLoading(false);
+      toast.error("Passwords do not match");
+      return;
     }
 
     try {
@@ -271,11 +313,34 @@ const ModalForm = ({ onClose, title, batches, onBatchCreated }) => {
                     placeholder="Min. 8 characters"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                     minLength={8}
+                    value={companyPassword}
+                    onChange={(e) => setCompanyPassword(e.target.value)}
                     required
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Must be at least 8 characters
                   </p>
+                  <p className="text-xs mt-1">
+                    Password strength:{" "}
+                    <span className={`font-semibold ${passwordStrength.color}`}>
+                      {passwordStrength.label}
+                    </span>
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirm Password <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    name="companyConfirmPassword"
+                    placeholder="Re-enter password"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                    minLength={8}
+                    value={companyConfirmPassword}
+                    onChange={(e) => setCompanyConfirmPassword(e.target.value)}
+                    required
+                  />
                 </div>
               </div>
             </div>

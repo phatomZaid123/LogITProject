@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -11,16 +11,15 @@ import { Save } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
 import LogITLogo from "../../assets/LogITLogo.jpeg";
+import StudentProfile from "../../components/Profile.jsx";
 
-function CompanySettings() {
+function StudentSettings() {
   const { api, refreshUser } = useAuth();
   const [form, setForm] = useState({
     name: "",
     email: "",
-    company_address: "",
-    job_title: "",
-    contact_person_name: "",
-    contact_person_email: "",
+    student_course: "",
+    student_admission_number: "",
   });
   const [profileImageFile, setProfileImageFile] = useState(null);
   const [profilePreview, setProfilePreview] = useState(LogITLogo);
@@ -34,10 +33,8 @@ function CompanySettings() {
         setForm({
           name: me.name || "",
           email: me.email || "",
-          company_address: me.company_address || "",
-          job_title: me.job_title || "",
-          contact_person_name: me.contact_person?.name || "",
-          contact_person_email: me.contact_person?.email || "",
+          student_course: me.student_course || "",
+          student_admission_number: me.student_admission_number || "",
         });
         setProfilePreview(
           me.profile_image
@@ -62,10 +59,7 @@ function CompanySettings() {
       const formData = new FormData();
       formData.append("name", form.name);
       formData.append("email", form.email);
-      formData.append("company_address", form.company_address);
-      formData.append("job_title", form.job_title);
-      formData.append("contact_person_name", form.contact_person_name);
-      formData.append("contact_person_email", form.contact_person_email);
+      formData.append("student_course", form.student_course);
       if (profileImageFile) {
         formData.append("profileImage", profileImageFile);
       }
@@ -83,14 +77,16 @@ function CompanySettings() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Settings</h1>
-        <p className="text-gray-600">Manage your company account settings.</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">My Profile</h1>
+        <p className="text-gray-600">View and update your account details.</p>
       </div>
 
       <Card elevated>
         <CardHeader withBorder>
-          <CardTitle>Company Information</CardTitle>
-          <CardDescription>Update your company details</CardDescription>
+          <CardTitle>Profile Settings</CardTitle>
+          <CardDescription>
+            Keep your profile information up to date.
+          </CardDescription>
         </CardHeader>
         <CardContent padding="lg">
           <div className="space-y-4">
@@ -124,7 +120,7 @@ function CompanySettings() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Company Name
+                Full Name
               </label>
               <input
                 type="text"
@@ -133,9 +129,10 @@ function CompanySettings() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contact Email
+                Email
               </label>
               <input
                 type="email"
@@ -144,58 +141,40 @@ function CompanySettings() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Company Address
-              </label>
-              <input
-                type="text"
-                value={form.company_address}
-                onChange={(e) =>
-                  handleChange("company_address", e.target.value)
-                }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Job Title
-              </label>
-              <input
-                type="text"
-                value={form.job_title}
-                onChange={(e) => handleChange("job_title", e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Contact Person Name
+                  Course
+                </label>
+                <select
+                  value={form.student_course}
+                  onChange={(e) =>
+                    handleChange("student_course", e.target.value)
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="">Select Course</option>
+                  <option value="BSCS">BSCS</option>
+                  <option value="BSIT">BSIT</option>
+                  <option value="BSSE">BSSE</option>
+                  <option value="BSDS">BSDS</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Admission Number
                 </label>
                 <input
                   type="text"
-                  value={form.contact_person_name}
-                  onChange={(e) =>
-                    handleChange("contact_person_name", e.target.value)
-                  }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Contact Person Email
-                </label>
-                <input
-                  type="email"
-                  value={form.contact_person_email}
-                  onChange={(e) =>
-                    handleChange("contact_person_email", e.target.value)
-                  }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  value={form.student_admission_number}
+                  readOnly
+                  className="w-full px-4 py-2 border border-gray-200 bg-gray-100 rounded-lg text-gray-600"
                 />
               </div>
             </div>
+
             <Button
               variant="primary"
               className="mt-4"
@@ -207,8 +186,19 @@ function CompanySettings() {
           </div>
         </CardContent>
       </Card>
+      <Card elevated>
+        <CardContent>
+          <div className="mt-6">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              Account Details
+            </h2>
+
+            <StudentProfile selfView />
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
-export default CompanySettings;
+export default StudentSettings;

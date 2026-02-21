@@ -252,7 +252,7 @@ const CompanyProfile = () => {
                     <tr>
                       <th className="px-4 py-3">Student</th>
                       <th className="px-4 py-3">Course</th>
-                      <th className="px-4 py-3">Admission #</th>
+                      <th className="px-4 py-3">Student ID</th>
                       <th className="px-4 py-3 text-center">Hours</th>
                       <th className="px-4 py-3 text-center">Progress</th>
                       <th className="px-4 py-3 text-center">Last Entry</th>

@@ -113,6 +113,67 @@ const getLogStats = async (req, res) => {
   }
 };
 
+// @desc    Submit a single logbook entry to company review
+// @route   PUT /api/student/logs/:id/submit
+const submitLogToCompany = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid logbook ID format" });
+    }
+
+    const log = await LOGBOOK.findById(id);
+    if (!log) {
+      return res.status(404).json({ message: "Logbook entry not found" });
+    }
+
+    if (log.created_by.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    const student = await Student.findById(req.user._id).select(
+      "assigned_company",
+    );
+    if (!student?.assigned_company) {
+      return res.status(400).json({ message: "No company assigned yet." });
+    }
+
+    if (!log.status || !["draft", "declined"].includes(log.status)) {
+      return res.status(400).json({
+        message: "Only draft or declined logbook entries can be submitted",
+      });
+    }
+
+    log.status = "pending";
+    await log.save();
+
+    await createNotification({
+      recipient: student.assigned_company,
+      recipientRole: "company",
+      type: "logbook_submitted",
+      title: "Logbook submitted for review",
+      message: `${req.user?.name || "A student"} submitted ${log.weekNumber ? `Week ${log.weekNumber} ` : ""}logbook for review.`,
+      link: "/company/dashboard/interns",
+      data: {
+        studentId: req.user._id,
+        logId: log._id,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Log submitted to company",
+      data: log,
+    });
+  } catch (error) {
+    console.error("Submit Log Error:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to submit log", error: error.message });
+  }
+};
+
 // @desc    Bulk submit pending timesheets to company
 const submitWeeklyTimesheet = async (req, res) => {
   try {
@@ -152,6 +213,22 @@ const submitWeeklyTimesheet = async (req, res) => {
       await entry.save();
     }
 
+    const recipientCompanyId = entries[0]?.company;
+    if (recipientCompanyId) {
+      await createNotification({
+        recipient: recipientCompanyId,
+        recipientRole: "company",
+        type: "timesheet_submitted",
+        title: "Timesheets submitted for review",
+        message: `${req.user?.name || "A student"} submitted ${entries.length} timesheet entr${entries.length === 1 ? "y" : "ies"}.`,
+        link: "/company/dashboard/interns",
+        data: {
+          studentId: req.user._id,
+          entryIds: entries.map((item) => item._id),
+        },
+      });
+    }
+
     res.status(200).json({
       success: true,
       message: `${entries.length} entries submitted to company.${
@@ -166,6 +243,122 @@ const submitWeeklyTimesheet = async (req, res) => {
     res
       .status(500)
       .json({ message: "Submission failed", error: error.message });
+  }
+};
+
+// @desc    Submit a single timesheet entry to company
+// @route   PUT /api/student/timesheets/:id/submit-company
+const submitTimesheetEntryToCompany = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid timesheet ID format" });
+    }
+
+    const entry = await TIMESHEET.findById(id);
+    if (!entry) {
+      return res.status(404).json({ message: "Timesheet entry not found" });
+    }
+
+    if (entry.student.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    if (!["pending", "company_declined"].includes(entry.status)) {
+      return res.status(400).json({
+        message: "Only draft or declined entries can be submitted to company",
+      });
+    }
+
+    if (!entry.timeIn || !entry.timeOut) {
+      return res.status(400).json({
+        message: "Please set both time in and time out before submit",
+      });
+    }
+
+    if (!entry.dailyLog || !entry.dailyLog.trim()) {
+      return res.status(400).json({
+        message: "Please add daily accomplished tasks before submitting",
+      });
+    }
+
+    if (!entry.company) {
+      const student = await Student.findById(req.user._id).select(
+        "assigned_company",
+      );
+      if (!student?.assigned_company) {
+        return res.status(400).json({ message: "No company assigned yet." });
+      }
+      entry.company = student.assigned_company;
+    }
+
+    entry.status = "submitted_to_company";
+    await entry.save();
+
+    await createNotification({
+      recipient: entry.company,
+      recipientRole: "company",
+      type: "timesheet_submitted",
+      title: "Timesheet submitted for review",
+      message: `${req.user?.name || "A student"} submitted a timesheet entry for review.`,
+      link: "/company/dashboard/interns",
+      data: {
+        studentId: req.user._id,
+        entryId: entry._id,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Entry submitted to company",
+      data: entry,
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Submission failed", error: error.message });
+  }
+};
+
+// @desc    Get logged-in student's full profile details (same shape as dean student detail view)
+// @route   GET /api/student/profile
+const getMyProfileDetails = async (req, res) => {
+  try {
+    const studentId = req.user?._id;
+
+    const student = await Student.findById(studentId)
+      .select("-password -createdAt -updatedAt -__v -role")
+      .populate("student_batch", "session_name year")
+      .populate("assigned_company", "name company_address");
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const [logs, timesheets] = await Promise.all([
+      LOGBOOK.find({ created_by: studentId }).sort({ createdAt: -1 }),
+      TIMESHEET.find({ student: studentId }).sort({ date: -1 }),
+    ]);
+
+    const approvedHours = timesheets
+      .filter((entry) => entry.status === "company_approved")
+      .reduce((sum, entry) => sum + (entry.totalHours || 0), 0);
+
+    const requiredHours = student.ojt_hours_required || 500;
+
+    const studentData = {
+      ...student.toObject(),
+      logs,
+      timesheets,
+      ojt_hours_completed: approvedHours,
+      ojt_hours_remaining: Math.max(0, requiredHours - approvedHours),
+    };
+
+    res.status(200).json(studentData);
+  } catch (error) {
+    console.error("Get My Profile Error:", error);
+    res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
 
@@ -220,7 +413,8 @@ const getStudentOjtProgress = async (req, res) => {
         $match: {
           // Explicitly cast to ObjectId for aggregate to work
           student: new mongoose.Types.ObjectId(studentId),
-          status: "company_approved",
+          timeOut: { $exists: true, $ne: "" },
+          totalHours: { $gt: 0 },
         },
       },
       {
@@ -441,73 +635,6 @@ const updateTimesheet = async (req, res) => {
   }
 };
 
-// @desc    Submit approved timesheets to dean for final review
-// @route   PUT /api/student/timesheets/submit-to-dean
-const submitTimesheetsToDean = async (req, res) => {
-  try {
-    return res.status(410).json({
-      success: false,
-      message:
-        "Timesheets are now finalized at company level. Dean submission is disabled.",
-    });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Submission failed", error: error.message });
-  }
-};
-
-// @desc    Submit a logbook draft to dean
-// @route   PUT /api/student/logs/:id/submit
-const submitLogToDean = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const log = await LOGBOOK.findOne({ _id: id, created_by: req.user._id });
-    if (!log) {
-      return res.status(404).json({ message: "Logbook entry not found" });
-    }
-
-    if (!["draft", "declined"].includes(log.status)) {
-      return res.status(400).json({
-        message: "Only draft or declined logs can be submitted to dean.",
-      });
-    }
-
-    log.status = "pending";
-    if (log.deanFeedback) log.deanFeedback = "";
-    await log.save();
-
-    const student = await Student.findById(req.user._id).select(
-      "assigned_company",
-    );
-
-    if (student?.assigned_company) {
-      await createNotification({
-        recipient: student.assigned_company,
-        recipientRole: "company",
-        type: "log_submitted",
-        title: "Student log submitted",
-        message: `${req.user?.name || "A student"} submitted logbook week ${log.weekNumber || "N/A"} for company review.`,
-        link: "/company/dashboard/reports",
-        data: {
-          logId: log._id,
-          studentId: req.user._id,
-        },
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Log submitted to company for review",
-      data: log,
-    });
-  } catch (error) {
-    console.error("Submit Log Error:", error);
-    res.status(500).json({ message: "Failed to submit log" });
-  }
-};
-
 const getStudentTasks = async (req, res) => {
   try {
     const tasks = await TASK.find({ assigned_to: req.user._id })
@@ -556,21 +683,6 @@ const updateMyTaskStatus = async (req, res) => {
     task.status = status;
     await task.save();
 
-    if (status === "submitted") {
-      await createNotification({
-        recipient: task.created_by_company?._id,
-        recipientRole: "company",
-        type: "task_submitted",
-        title: "Task submitted by student",
-        message: `${req.user?.name || "A student"} submitted task: ${task.title}`,
-        link: "/company/dashboard/tasks",
-        data: {
-          taskId: task._id,
-          studentId: req.user._id,
-        },
-      });
-    }
-
     res.status(200).json({ success: true, task });
   } catch (error) {
     console.error("Update Student Task Status Error:", error);
@@ -605,6 +717,7 @@ const getStudentDashboardStats = async (req, res) => {
       pendingLogs,
       completedTasks,
       pendingTimesheets,
+      approvedTimesheets,
       recentLogs,
       recentTimesheets,
       recentTasks,
@@ -634,13 +747,12 @@ const getStudentDashboardStats = async (req, res) => {
       TIMESHEET.countDocuments({
         student: studentId,
         status: {
-          $in: [
-            "pending",
-            "submitted_to_company",
-            "company_approved",
-            "edited_by_company",
-          ],
+          $in: ["submitted_to_company", "edited_by_company"],
         },
+      }),
+      TIMESHEET.countDocuments({
+        student: studentId,
+        status: "company_approved",
       }),
       LOGBOOK.find({ created_by: studentId })
         .sort({ createdAt: -1 })
@@ -705,6 +817,7 @@ const getStudentDashboardStats = async (req, res) => {
         },
         timesheets: {
           pending: pendingTimesheets,
+          approved: approvedTimesheets,
         },
         tasks: {
           completed: completedTasks,
@@ -738,13 +851,14 @@ export {
   createWeeklyLog,
   getLogStats,
   getStudentLogs,
+  submitLogToCompany,
   submitWeeklyTimesheet,
+  submitTimesheetEntryToCompany,
+  getMyProfileDetails,
   getStudentOjtProgress,
   updateTimesheet,
   getStudentTimesheets,
-  submitTimesheetsToDean,
   getStudentTasks,
   updateMyTaskStatus,
   getStudentDashboardStats,
-  submitLogToDean,
 };

@@ -27,6 +27,7 @@ const userSchema = new mongoose.Schema(
     role: { type: String },
     faculty: { type: String },
     company_name: { type: String },
+    profile_image: { type: String, default: "" },
   },
   {
     discriminatorKey: "role",

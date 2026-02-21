@@ -23,6 +23,9 @@ import { useAuth } from "../context/AuthContext";
 function SideBar({ children }) {
   const [open, setOpen] = useState(false);
   const { logout, user } = useAuth();
+  const profileImageSrc = user?.profile_image
+    ? `http://localhost:5000${user.profile_image}`
+    : LogITLogo;
 
   /* ===== MENU CONFIG ===== */
   const menuItems = {
@@ -34,6 +37,11 @@ function SideBar({ children }) {
         icon: FileText,
       },
       { label: "Timesheet", path: "/student/dashboard/timesheet", icon: Clock },
+      {
+        label: "My Profile",
+        path: "/student/dashboard/profile",
+        icon: Settings,
+      },
     ],
 
     dean: [
@@ -49,7 +57,7 @@ function SideBar({ children }) {
         path: "/dean/dashboard/alumini",
         icon: Users,
       },
-     
+
       {
         label: "Complaints",
         path: "/dean/dashboard/complaints",
@@ -133,6 +141,11 @@ function SideBar({ children }) {
 
           {/* ===== USER CARD ===== */}
           <div className="px-6 py-4 border-b border-slate-700">
+            <img
+              src={profileImageSrc}
+              alt="Profile"
+              className="h-12 w-12 rounded-full object-cover border border-slate-600 mb-3"
+            />
             <p className="text-xs text-slate-400">Logged in as</p>
 
             <p className="font-semibold mt-1 capitalize">

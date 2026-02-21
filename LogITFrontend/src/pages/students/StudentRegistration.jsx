@@ -3,6 +3,24 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { UserPlus, BookOpen, Hash, Mail, Lock } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
+const normalizeText = (value = "") => value.trim().replace(/\s+/g, " ");
+const normalizeEmail = (value = "") => normalizeText(value).toLowerCase();
+const normalizeCourse = (value = "") => normalizeText(value).toUpperCase();
+const normalizeAdmissionNumber = (value = "") => value.replace(/\D/g, "");
+
+const getPasswordStrength = (password = "") => {
+  let score = 0;
+  if (password.length >= 8) score += 1;
+  if (/[A-Z]/.test(password)) score += 1;
+  if (/[a-z]/.test(password)) score += 1;
+  if (/\d/.test(password)) score += 1;
+  if (/[^A-Za-z0-9]/.test(password)) score += 1;
+
+  if (score <= 2) return { label: "Weak", color: "text-red-600" };
+  if (score <= 4) return { label: "Medium", color: "text-amber-600" };
+  return { label: "Strong", color: "text-green-600" };
+};
+
 const StudentRegistration = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -13,17 +31,19 @@ const StudentRegistration = () => {
     name: "",
     email: "",
     password: "",
+    confirmPassword: "",
     admission_number: "",
     course: "",
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const passwordStrength = getPasswordStrength(formData.password);
 
   useEffect(() => {
     if (!token) {
       setError(
-        "No invitation token found. Please ask your Dean for a valid link."
+        "No invitation token found. Please ask your Dean for a valid link.",
       );
     }
   }, [token]);
@@ -44,24 +64,31 @@ const StudentRegistration = () => {
     setLoading(true);
     setError("");
 
-    try {
-      const payload = {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        admission_number: formData.admission_number,
-        student_course: formData.course,
-        token: token,
-      };
+    const serializedPayload = {
+      name: normalizeText(formData.name),
+      email: normalizeEmail(formData.email),
+      password: formData.password,
+      confirmPassword: formData.confirmPassword,
+      admission_number: normalizeAdmissionNumber(formData.admission_number),
+      student_course: normalizeCourse(formData.course),
+      token: token,
+    };
 
-      await api.post("/auth/users/students/register", payload);
+    if (serializedPayload.password !== serializedPayload.confirmPassword) {
+      setLoading(false);
+      setError("Passwords do not match.");
+      return;
+    }
+
+    try {
+      await api.post("/auth/users/students/register", serializedPayload);
 
       alert("Registration Successful! You can now log in.");
       navigate("/login");
     } catch (error) {
       setError(
         error.response?.data?.message ||
-          "Registration failed. The link might be expired."
+          "Registration failed. The link might be expired.",
       );
     } finally {
       setLoading(false);
@@ -89,8 +116,7 @@ const StudentRegistration = () => {
           </div>
         )}
 
-        {/* Added autoComplete="off" to help with the port error */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
           <div className="relative">
             <UserPlus
               className="absolute left-3 top-3 text-gray-400"
@@ -102,7 +128,10 @@ const StudentRegistration = () => {
               value={formData.name}
               className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
               onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
+                setFormData({
+                  ...formData,
+                  name: normalizeText(e.target.value),
+                })
               }
               required
             />
@@ -116,7 +145,10 @@ const StudentRegistration = () => {
               value={formData.email}
               className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
               onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
+                setFormData({
+                  ...formData,
+                  email: normalizeEmail(e.target.value),
+                })
               }
               required
             />
@@ -130,7 +162,10 @@ const StudentRegistration = () => {
               value={formData.admission_number}
               className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
               onChange={(e) =>
-                setFormData({ ...formData, admission_number: e.target.value })
+                setFormData({
+                  ...formData,
+                  admission_number: normalizeAdmissionNumber(e.target.value),
+                })
               }
               required
             />
@@ -147,7 +182,10 @@ const StudentRegistration = () => {
               value={formData.course}
               className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
               onChange={(e) =>
-                setFormData({ ...formData, course: e.target.value })
+                setFormData({
+                  ...formData,
+                  course: normalizeCourse(e.target.value),
+                })
               }
               required
             />
@@ -162,6 +200,27 @@ const StudentRegistration = () => {
               className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
               onChange={(e) =>
                 setFormData({ ...formData, password: e.target.value })
+              }
+              required
+            />
+          </div>
+
+          <div className="text-xs -mt-2">
+            Password strength:{" "}
+            <span className={`font-semibold ${passwordStrength.color}`}>
+              {passwordStrength.label}
+            </span>
+          </div>
+
+          <div className="relative">
+            <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
+            <input
+              type="password"
+              placeholder="Confirm Password"
+              value={formData.confirmPassword}
+              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+              onChange={(e) =>
+                setFormData({ ...formData, confirmPassword: e.target.value })
               }
               required
             />

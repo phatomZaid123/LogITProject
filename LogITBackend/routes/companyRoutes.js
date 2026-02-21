@@ -4,10 +4,13 @@ import {
   searchStudents,
   assignStudentToCompany,
   assignedInterns,
+  getAssignedStudentProfile,
   approveAllStudentEntries,
   getPendingApprovals,
   companyReviewTimesheet,
   getStudentTimesheets,
+  getStudentLogsForCompany,
+  companyReviewLogbook,
   createTask,
   getCompanyTasks,
   updateTaskStatus,
@@ -39,6 +42,18 @@ router.get(
   authorize("company"),
   getStudentTimesheets,
 );
+router.get(
+  "/student/:studentId/logs",
+  protect,
+  authorize("company"),
+  getStudentLogsForCompany,
+);
+router.get(
+  "/student/:studentId/profile",
+  protect,
+  authorize("company"),
+  getAssignedStudentProfile,
+);
 router.put(
   "/approve-all/:studentId",
   protect,
@@ -50,6 +65,12 @@ router.put(
   protect,
   authorize("company"),
   companyReviewTimesheet,
+);
+router.put(
+  "/logs/:id/review",
+  protect,
+  authorize("company"),
+  companyReviewLogbook,
 );
 router.get("/tasks", protect, authorize("company"), getCompanyTasks);
 router.post("/tasks", protect, authorize("company"), createTask);

@@ -7,6 +7,7 @@ import {
   AlertCircle,
   LogIn,
   LogOut,
+  Send,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
@@ -15,7 +16,11 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
   const { api } = useAuth();
   const { studentCanEdit = false } = permissions;
   const [timingOutDay, setTimingOutDay] = useState(null);
-  const [timeoutData, setTimeoutData] = useState({ timeOut: "", dailyLog: "" });
+  const [timeoutData, setTimeoutData] = useState({
+    timeOut: "",
+    dailyLog: "",
+    breakMinutes: 0,
+  });
   const [loading, setLoading] = useState(false);
 
   const daysOfWeek = [
@@ -86,6 +91,7 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
     setTimeoutData({
       timeOut: formatNow(),
       dailyLog: day.entry?.dailyLog || "",
+      breakMinutes: day.entry?.breakMinutes ?? 0,
     });
   };
 
@@ -105,11 +111,12 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
       const response = await api.put(`/student/timesheets/${day.entry._id}`, {
         timeOut: timeoutData.timeOut,
         dailyLog: timeoutData.dailyLog,
+        breakMinutes: Number(timeoutData.breakMinutes || 0),
       });
       onUpdate(day.entry._id, response.data);
       toast.success("Time out saved");
       setTimingOutDay(null);
-      setTimeoutData({ timeOut: "", dailyLog: "" });
+      setTimeoutData({ timeOut: "", dailyLog: "", breakMinutes: 0 });
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to save time out");
     } finally {
@@ -119,7 +126,25 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
 
   const handleCancelTimeOut = () => {
     setTimingOutDay(null);
-    setTimeoutData({ timeOut: "", dailyLog: "" });
+    setTimeoutData({ timeOut: "", dailyLog: "", breakMinutes: 0 });
+  };
+
+  const handleSubmitEntry = async (day) => {
+    if (!day?.entry?._id) return;
+
+    setLoading(true);
+    try {
+      const response = await api.put(
+        `/student/timesheets/${day.entry._id}/submit-company`,
+      );
+
+      onUpdate(day.entry._id, response?.data?.data || response?.data);
+      toast.success("Entry submitted to company");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to submit entry");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -173,6 +198,16 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
     return !["pending", "company_declined"].includes(day.entry.status);
   };
 
+  const canSubmitEntry = (day) => {
+    if (!studentCanEdit || !day.entry) return false;
+    if (!["pending", "company_declined"].includes(day.entry.status)) {
+      return false;
+    }
+    if (!day.entry.timeOut) return false;
+    if (!day.entry.dailyLog?.trim()) return false;
+    return true;
+  };
+
   return (
     <div className="overflow-x-auto shadow-sm rounded-lg">
       <table className="w-full border-collapse min-w-200">
@@ -189,6 +224,9 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
             </th>
             <th className="px-2 py-2 text-left text-xs font-bold text-gray-700 border-b-2 border-purple-200">
               Time Out
+            </th>
+            <th className="px-2 py-2 text-left text-xs font-bold text-gray-700 border-b-2 border-purple-200">
+              Break (min)
             </th>
             <th className="px-2 py-2 text-left text-xs font-bold text-gray-700 border-b-2 border-purple-200">
               Daily Tasks
@@ -281,6 +319,30 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
                   )}
                 </td>
 
+                {/* Break Minutes */}
+                <td className="px-2 py-2">
+                  {isTimingOut ? (
+                    <input
+                      type="number"
+                      min="0"
+                      value={timeoutData.breakMinutes}
+                      onChange={(e) =>
+                        setTimeoutData((prev) => ({
+                          ...prev,
+                          breakMinutes: e.target.value,
+                        }))
+                      }
+                      className="w-full max-w-18 px-2 py-1 border border-purple-300 rounded text-xs focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                  ) : day.entry ? (
+                    <span className="text-xs font-medium text-gray-800">
+                      {Number(day.entry.breakMinutes || 0)}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-400">--</span>
+                  )}
+                </td>
+
                 {/* Daily Tasks */}
                 <td className="px-2 py-2">
                   {isTimingOut ? (
@@ -356,7 +418,18 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
                       </button>
                     </div>
                   ) : (
-                    <div className="flex justify-center">
+                    <div className="flex justify-center gap-1 flex-wrap">
+                      {canSubmitEntry(day) && (
+                        <button
+                          onClick={() => handleSubmitEntry(day)}
+                          disabled={loading}
+                          className="px-2 py-1 rounded transition-colors text-xs font-semibold flex items-center gap-1 bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50"
+                        >
+                          <Send size={12} />
+                          <span className="hidden sm:inline">Submit</span>
+                        </button>
+                      )}
+
                       {canClockOut(day) ? (
                         <button
                           onClick={() => openTimeOutForm(day)}

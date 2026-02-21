@@ -4,18 +4,19 @@ import {
   createWeeklyLog,
   getStudentLogs,
   getLogStats,
+  submitLogToCompany,
   // Timesheet functions
   getStudentTimesheets,
   updateTimesheet,
   submitWeeklyTimesheet,
+  submitTimesheetEntryToCompany,
+  getMyProfileDetails,
   getStudentOjtProgress,
   createTimesheetEntry,
   createTimesheet,
-  submitTimesheetsToDean,
   getStudentTasks,
   updateMyTaskStatus,
   getStudentDashboardStats,
-  submitLogToDean,
 } from "../controllers/studentController.js";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 import { upload } from "../middleware/uploads.js";
@@ -31,7 +32,13 @@ router.post(
 );
 router.get("/logs", protect, authorize("student"), getStudentLogs);
 router.get("/logs/stats", protect, authorize("student"), getLogStats);
-router.put("/logs/:id/submit", protect, authorize("student"), submitLogToDean);
+router.get("/profile", protect, authorize("student"), getMyProfileDetails);
+router.put(
+  "/logs/:id/submit",
+  protect,
+  authorize("student"),
+  submitLogToCompany,
+);
 
 router.post("/timesheets", protect, authorize("student"), createTimesheetEntry);
 router.get(
@@ -53,11 +60,12 @@ router.put(
   submitWeeklyTimesheet,
 );
 router.put(
-  "/timesheets/submit-to-dean",
+  "/timesheets/:id/submit-company",
   protect,
   authorize("student"),
-  submitTimesheetsToDean,
+  submitTimesheetEntryToCompany,
 );
+
 router.put("/timesheets/:id", protect, authorize("student"), updateTimesheet);
 router.post(
   "/create-timesheet",

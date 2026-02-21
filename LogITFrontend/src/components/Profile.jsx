@@ -16,9 +16,9 @@ import {
 import toast from "react-hot-toast";
 import Button from "./ui/Button";
 
-export default function StudentProfile() {
+export default function StudentProfile({ selfView = false }) {
   const { id } = useParams();
-  const { api } = useAuth();
+  const { api, user } = useAuth();
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -27,7 +27,8 @@ export default function StudentProfile() {
     const fetchStudentData = async () => {
       try {
         setLoading(true);
-        const response = await api.get(`/dean/student/${id}`);
+        const endpoint = selfView ? "/student/profile" : `/dean/student/${id}`;
+        const response = await api.get(endpoint);
         setStudent(response.data);
         setError(null);
       } catch (err) {
@@ -40,13 +41,15 @@ export default function StudentProfile() {
         setLoading(false);
       }
     };
-
-    if (id && api) {
+ 
+    if ((selfView || id) && api) {
       fetchStudentData();
     }
-  }, [id, api]);
+  }, [id, api, selfView, user]);
 
   const markAsCompleted = async () => {
+    if (selfView) return;
+
     try {
       await api.put(`/dean/students/${id}/complete`);
       toast.success("Student marked as completed");
@@ -87,12 +90,14 @@ export default function StudentProfile() {
   const studentName = student?.name || "N/A";
   const studentCourse = student?.student_course || "N/A";
   const studentEmail = student?.email || "N/A";
-  const studentContactNo = student?.contact_no || "N/A";
   const admissionNumber = student?.student_admission_number || "N/A";
   const batchName = student?.student_batch?.session_name || "N/A";
   const batchYear = student?.student_batch?.year || "";
   const companyName = student?.assigned_company?.name || "Not assigned";
-  const companyAddress = student?.assigned_company?.address || "N/A";
+  const companyAddress =
+    student?.assigned_company?.company_address ||
+    student?.assigned_company?.address ||
+    "N/A";
 
   // Calculate statistics
   const ojtHoursRequired = Number(student?.ojt_hours_required || 500);
@@ -135,9 +140,11 @@ export default function StudentProfile() {
             </div>
           </div>
 
-          <button className="bg-white hover:bg-gray-100 text-purple-600 px-6 py-3 rounded-lg text-sm font-semibold shadow-lg transition-all hover:shadow-xl">
-            GENERATE REPORT
-          </button>
+          {!selfView && (
+            <button className="bg-white hover:bg-gray-100 text-purple-600 px-6 py-3 rounded-lg text-sm font-semibold shadow-lg transition-all hover:shadow-xl">
+              GENERATE REPORT
+            </button>
+          )}
         </div>
       </div>
 
@@ -190,7 +197,6 @@ export default function StudentProfile() {
             value={`${batchName}${batchYear ? ` (${batchYear})` : ""}`}
           />
           <InfoItem label="Email" value={studentEmail} />
-          <InfoItem label="Contact No." value={studentContactNo} />
         </InfoCard>
 
         {/* OJT Information */}
@@ -264,12 +270,16 @@ export default function StudentProfile() {
             ) : (
               <StudentTimeTable timesheets={student.timesheets || []} />
             )}
-            <div className="text-right">
-              <Button className="justify-center m-2 " onClick={markAsCompleted}>
-                {" "}
-                Mark as Completed
-              </Button>
-            </div>
+            {!selfView && (
+              <div className="text-right">
+                <Button
+                  className="justify-center m-2 "
+                  onClick={markAsCompleted}
+                >
+                  Mark as Completed
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -477,13 +487,13 @@ export default function StudentProfile() {
 
   function StatusPill({ status }) {
     const configs = {
-      approved: {
+      company_approved: {
         bg: "bg-green-100",
         text: "text-green-700",
         border: "border-green-200",
         icon: <CheckCircle2 size={12} />,
       },
-      dean_approved: {
+      approved: {
         bg: "bg-green-100",
         text: "text-green-700",
         border: "border-green-200",
@@ -495,19 +505,32 @@ export default function StudentProfile() {
         border: "border-amber-200",
         icon: <AlertCircle size={12} />,
       },
-      submitted_to_dean: {
+      submitted_to_company: {
         bg: "bg-blue-100",
         text: "text-blue-700",
         border: "border-blue-200",
         icon: <AlertCircle size={12} />,
       },
-      declined: {
+      edited_by_company: {
+        bg: "bg-purple-100",
+        text: "text-purple-700",
+        border: "border-purple-200",
+        icon: <AlertCircle size={12} />,
+      },
+      company_declined: {
         bg: "bg-red-100",
         text: "text-red-700",
         border: "border-red-200",
         icon: <XCircle size={12} />,
       },
+      // Backward-compatible aliases
       dean_declined: {
+        bg: "bg-red-100",
+        text: "text-red-700",
+        border: "border-red-200",
+        icon: <XCircle size={12} />,
+      },
+      declined: {
         bg: "bg-red-100",
         text: "text-red-700",
         border: "border-red-200",

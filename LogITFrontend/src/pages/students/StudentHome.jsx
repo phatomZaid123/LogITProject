@@ -6,19 +6,13 @@ import {
   CardTitle,
   CardDescription,
 } from "../../components/ui/Card";
-import Button from "../../components/ui/Button";
-import {
-  Clock,
-  CheckCircle2,
-  FileText,
-  AlertCircle,
-  Calendar,
-} from "lucide-react";
+
+import { Clock, CheckCircle2, FileText, AlertCircle } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
 
 function StudentHome() {
-  const { api, user } = useAuth();
+  const { api } = useAuth();
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -43,40 +37,50 @@ function StudentHome() {
     const hours = dashboard?.stats?.hours;
     const logs = dashboard?.stats?.logs;
     const timesheets = dashboard?.stats?.timesheets;
-    const tasks = dashboard?.stats?.tasks;
+    const toCount = (value) => Number(value || 0);
     const hoursPercent = Number(hours?.percent || 0);
+    const boundedHoursPercent = Math.min(100, Math.max(0, hoursPercent));
 
     return [
       {
         title: "Total Hours",
-        value: hours ? `${hours.total.toFixed(1)}h` : "0.0h",
-        percent: `${Math.min(100, hoursPercent).toFixed(0)}%`,
+        value: `${Number(hours?.total || 0).toFixed(1)}h`,
+        caption: `${boundedHoursPercent.toFixed(0)}% completed`,
+        progressWidth: `${boundedHoursPercent.toFixed(0)}%`,
+        showProgress: true,
         icon: Clock,
         color: "bg-blue-100 text-blue-600",
       },
       {
-        title: "Approved Entries",
-        value: logs ? String(logs.approved) : "0",
-        percent:
-          logs && logs.approved + (logs.pending || 0) > 0
-            ? `${Math.round(
-                (logs.approved / (logs.approved + (logs.pending || 0))) * 100,
-              )}%`
-            : "0%",
-        icon: CheckCircle2,
-        color: "bg-green-100 text-green-600",
-      },
-      {
-        title: "Pending Approval",
-        value: String(dashboard?.stats?.pendingApprovals || 0),
-        percent: "In review",
+        title: "Pending Logbook Entries",
+        value: String(toCount(logs?.pending)),
+        caption: "In review",
+        showProgress: false,
         icon: AlertCircle,
         color: "bg-amber-100 text-amber-600",
       },
       {
-        title: "Tasks Completed",
-        value: tasks ? String(tasks.completed) : "0",
-        percent: tasks && tasks.completed > 0 ? "100%" : "0%",
+        title: "Approved Logbook Entries",
+        value: String(toCount(logs?.approved)),
+        caption: "Approved",
+        showProgress: false,
+        icon: CheckCircle2,
+        color: "bg-green-100 text-green-600",
+      },
+
+      {
+        title: "Pending Timesheets",
+        value: String(toCount(timesheets?.pending)),
+        caption: "In review",
+        showProgress: false,
+        icon: AlertCircle,
+        color: "bg-amber-100 text-amber-600",
+      },
+      {
+        title: "Approved Timesheets",
+        value: String(toCount(timesheets?.approved)),
+        caption: "Approved",
+        showProgress: false,
         icon: FileText,
         color: "bg-purple-100 text-purple-600",
       },
@@ -135,11 +139,6 @@ function StudentHome() {
     return [...logs, ...timesheets, ...tasks].slice(0, 8);
   }, [dashboard]);
 
-  const upcomingDeadlines = useMemo(
-    () => dashboard?.upcomingDeadlines || [],
-    [dashboard],
-  );
-
   const companyInfo = dashboard?.companyInfo || null;
 
   return (
@@ -154,17 +153,17 @@ function StudentHome() {
 
       {/* Statistics Grid */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map((i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+          {[1, 2, 3, 4, 5].map((i) => (
             <Card key={i} elevated className="animate-pulse">
-              <CardContent padding="lg">
-                <div className="h-24 bg-gray-200 rounded-lg" />
+              <CardContent padding="md">
+                <div className="h-20 bg-gray-200 rounded-lg" />
               </CardContent>
             </Card>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
           {stats.map((stat, index) => {
             const Icon = stat.icon;
 
@@ -174,27 +173,33 @@ function StudentHome() {
                 elevated
                 className="hover:shadow-lg transition-all duration-300"
               >
-                <CardContent padding="lg">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className={`p-3 rounded-lg ${stat.color}`}>
-                      <Icon size={24} />
+                <CardContent padding="md">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className={`rounded-lg p-2 ${stat.color}`}>
+                      <Icon size={18} />
                     </div>
                   </div>
-                  <h3 className="text-gray-600 text-sm font-medium mb-1">
+                  <h3 className="text-gray-600 text-xs font-medium mb-1">
                     {stat.title}
                   </h3>
-                  <p className="text-3xl font-bold text-gray-900 mb-2">
+                  <p className="text-2xl font-bold text-gray-900 mb-2">
                     {stat.value}
                   </p>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-purple-600 h-2 rounded-full"
-                      style={{ width: stat.percent }}
-                    ></div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    {stat.percent} completed
-                  </p>
+                  {stat.showProgress ? (
+                    <>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-purple-600 h-2 rounded-full"
+                          style={{ width: stat.progressWidth }}
+                        ></div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {stat.caption}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-gray-500 mt-2">{stat.caption}</p>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -309,59 +314,6 @@ function StudentHome() {
               ) : (
                 <div className="text-sm text-gray-500">
                   No company assigned yet.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Upcoming Deadlines */}
-          <Card elevated>
-            <CardHeader withBorder>
-              <CardTitle variant="h4">Upcoming Deadlines</CardTitle>
-            </CardHeader>
-            <CardContent padding="lg">
-              {loading ? (
-                <div className="h-24 bg-gray-100 rounded-lg animate-pulse" />
-              ) : upcomingDeadlines.length === 0 ? (
-                <div className="text-sm text-gray-500">
-                  No upcoming deadlines.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {upcomingDeadlines.map((deadline) => (
-                    <div
-                      key={deadline.id}
-                      className="pb-3 border-b border-gray-200 last:border-0 last:pb-0"
-                    >
-                      <div className="flex items-start gap-2 mb-1">
-                        <Calendar size={14} className="text-gray-400 mt-0.5" />
-                        <p className="text-sm font-medium text-gray-900 flex-1">
-                          {deadline.title}
-                        </p>
-                        <span
-                          className={`text-[10px] uppercase px-2 py-0.5 rounded-full ${
-                            deadline.priority === "high"
-                              ? "bg-rose-100 text-rose-700"
-                              : deadline.priority === "medium"
-                                ? "bg-amber-100 text-amber-700"
-                                : "bg-emerald-100 text-emerald-700"
-                          }`}
-                        >
-                          {deadline.priority}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 ml-6">
-                        {new Date(deadline.dueDate).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          },
-                        )}
-                      </p>
-                    </div>
-                  ))}
                 </div>
               )}
             </CardContent>

@@ -21,12 +21,14 @@ import StudentTimesheet from "./pages/students/StudentTimesheet.jsx";
 
 import StudentReports from "./pages/students/StudentReports.jsx";
 import StudentHome from "./pages/students/StudentHome.jsx";
+import StudentSettings from "./pages/students/StudentSettings.jsx";
 import CompanyEmployees from "./pages/company/CompanyInterns.jsx";
 
 import CompanyReports from "./pages/company/CompanyReports.jsx";
 import ComplainToDean from "./pages/company/ComplainToDean.jsx";
 import CompanySettings from "./pages/company/CompanySettings.jsx";
 import CompanyHome from "./pages/company/CompanyHome.jsx";
+import CompanyInternProfile from "./pages/company/CompanyInternProfile.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import RequireRole from "./components/ProtectedRoutes.jsx";
 import { Toaster } from "react-hot-toast";
@@ -149,6 +151,10 @@ function App() {
               path: "reports",
               element: <StudentReports />,
             },
+            {
+              path: "profile",
+              element: <StudentSettings />,
+            },
           ],
         },
       ],
@@ -169,6 +175,10 @@ function App() {
             {
               path: "interns",
               element: <CompanyEmployees />,
+            },
+            {
+              path: "interns/:studentId",
+              element: <CompanyInternProfile />,
             },
 
             {

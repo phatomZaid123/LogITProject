@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -24,6 +25,7 @@ function CompanyInterns() {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [students, setStudents] = useState([]);
+  const navigate = useNavigate();
 
   const { api } = useAuth();
 
@@ -295,7 +297,11 @@ function CompanyInterns() {
                             <Button
                               variant="ghost"
                               className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
-                              onClick={() => toast("Profile view coming soon!")}
+                              onClick={() =>
+                                navigate(
+                                  `/company/dashboard/interns/${student._id}`,
+                                )
+                              }
                             >
                               View Profile
                             </Button>
@@ -310,6 +316,7 @@ function CompanyInterns() {
           </Card>
         </div>
       </div>
+
     </div>
   );
 }

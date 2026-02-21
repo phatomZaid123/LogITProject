@@ -41,10 +41,10 @@ const COMPANY_STATE_META = {
     description:
       "Company declined at least one day. Student must revise before resubmitting.",
   },
-  ready_for_dean: {
+  approved: {
     label: "Approved",
     badge: "bg-emerald-50 text-emerald-600 border border-emerald-100",
-    description: "All entries are approved and ready for dean submission.",
+    description: "All expected entries for the selected set are approved.",
   },
 };
 
@@ -52,28 +52,37 @@ const COMPANY_PIPELINE = [
   { key: "idle", label: "No Submission" },
   { key: "awaiting_review", label: "Company Review" },
   { key: "needs_student", label: "Sent Back" },
-  { key: "ready_for_dean", label: "Ready for Dean" },
+  { key: "approved", label: "Approved" },
 ];
 
-const deriveCompanyState = (entries = []) => {
+const deriveCompanyState = (entries = [], totalDays = 7) => {
   if (!entries.length) return "idle";
+
   const statuses = entries.map((entry) => entry.status);
+
   if (statuses.some((status) => status === "company_declined")) {
     return "needs_student";
   }
-  if (statuses.some((status) => status === "submitted_to_company")) {
+
+  if (
+    statuses.some((status) =>
+      ["submitted_to_company", "edited_by_company"].includes(status),
+    )
+  ) {
     return "awaiting_review";
   }
-  if (
-    statuses.length > 0 &&
-    statuses.every((status) => status === "company_approved")
-  ) {
-    return "ready_for_dean";
+
+  const allApproved = statuses.every((status) => status === "company_approved");
+  const hasExpectedRows = entries.length >= totalDays;
+
+  if (statuses.length > 0 && allApproved && hasExpectedRows) {
+    return "approved";
   }
+
   return "idle";
 };
 
-const buildStudentSummary = (entries = []) => {
+const buildStudentSummary = (entries = [], totalDays = 7) => {
   const counts = entries.reduce((acc, entry) => {
     acc[entry.status] = (acc[entry.status] || 0) + 1;
     return acc;
@@ -89,7 +98,7 @@ const buildStudentSummary = (entries = []) => {
     const date = new Date(entry.updatedAt || entry.date);
     return date > latest ? date : latest;
   }, new Date(0));
-  const state = deriveCompanyState(entries);
+  const state = deriveCompanyState(entries, totalDays);
   const meta = COMPANY_STATE_META[state] || COMPANY_STATE_META.idle;
 
   return {
@@ -136,7 +145,7 @@ function CompanyApprovals() {
     });
   }, [studentSummary.lastSubmitted]);
 
-  // 1. Fetch students who have 'submitted_to_company' timesheets
+  //  Fetch students who have 'submitted_to_company' timesheets
   const fetchPending = async () => {
     try {
       const res = await api.get("/company/pending-approvals");
@@ -173,7 +182,7 @@ function CompanyApprovals() {
     }
   };
 
-  // 3. Bulk approve all entries for selected student
+  // Bulk approve all entries for selected student
   const handleBulkApprove = async () => {
     if (!selectedStudent) return;
 
@@ -296,9 +305,6 @@ function CompanyApprovals() {
                               {student.name}
                             </p>
                             <div className="flex flex-col gap-0.5 mt-0.5">
-                              <p className="text-xs text-gray-500 flex items-center gap-1">
-                                {student.student_admission_number || "No ID"}
-                              </p>
                               <span
                                 className={`inline-flex items-center gap-1.5 text-xs font-semibold py-0.5 px-2 rounded-full w-fit mt-1 ${
                                   selectedStudent?._id === student._id
@@ -491,21 +497,6 @@ function CompanyApprovals() {
             </div>
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-// Internal Helper Component
-function StatCard({ label, value, icon }) {
-  return (
-    <div className="bg-white px-6 py-3 rounded-2xl shadow-sm border border-gray-50 flex items-center gap-4">
-      <div className="p-2 bg-gray-50 rounded-lg">{icon}</div>
-      <div>
-        <p className="text-[10px] uppercase font-bold text-gray-400 tracking-widest">
-          {label}
-        </p>
-        <p className="text-2xl font-black text-gray-800">{value}</p>
       </div>
     </div>
   );

@@ -9,7 +9,6 @@ import {
 import Button from "../../components/ui/Button";
 import {
   Clock,
-  Send,
   CheckCircle,
   Download,
   Calendar,
@@ -28,7 +27,7 @@ const WEEK_STATE_META = {
     label: "Draft",
     badge: "bg-gray-100 text-gray-700 border border-gray-200",
     description:
-      "Student can still add or edit logs before sending to company.",
+      "Student can still add, edit, and submit each day individually.",
   },
   company_review: {
     label: "Company Review",
@@ -54,52 +53,66 @@ const WEEK_STEP_SEQUENCE = [
   { key: "approved", label: "Approved" },
 ];
 
-const deriveWeekState = (entries = []) => {
+const deriveWeekState = (entries = [], totalDays = 7) => {
   if (!entries.length) return "draft";
 
   const statuses = entries.map((entry) => entry.status);
+  const hasPending = statuses.includes("pending");
+  const hasCompanyReview = statuses.some((status) =>
+    ["submitted_to_company", "edited_by_company"].includes(status),
+  );
+  const hasDeclined = statuses.includes("company_declined");
+  const allApproved = statuses.every((status) => status === "company_approved");
+  const isFullWeek = entries.length >= totalDays;
 
-  if (statuses.every((status) => status === "company_approved")) {
+  // Finalize only when all expected days for the week are approved.
+  if (isFullWeek && allApproved) {
     return "approved";
   }
 
-  if (statuses.some((status) => status === "company_declined")) {
+  if (hasDeclined) {
     return "company_returned";
   }
 
-  if (
-    statuses.some((status) =>
-      ["submitted_to_company", "edited_by_company"].includes(status),
-    )
-  ) {
+  if (hasCompanyReview && !hasPending) {
     return "company_review";
   }
 
   return "draft";
 };
 
-const buildWeekSummary = (entries = []) => {
+const buildWeekSummary = (entries = [], totalDays = 7) => {
   const counts = entries.reduce((acc, entry) => {
     acc[entry.status] = (acc[entry.status] || 0) + 1;
     return acc;
   }, {});
 
-  const state = deriveWeekState(entries);
+  const state = deriveWeekState(entries, totalDays);
   const meta = WEEK_STATE_META[state] || WEEK_STATE_META.draft;
   const hasIncompleteFields = entries.some((entry) => !entry.timeOut);
   const hasSubmittableEntries = entries.some((entry) =>
     ["pending", "company_declined"].includes(entry.status),
   );
-  const studentCanEdit = ["draft", "company_returned"].includes(state);
-  const canSubmitToCompany = studentCanEdit && hasSubmittableEntries;
+  const canAddMoreRows = entries.length < totalDays;
+  const studentCanEdit = state !== "approved";
 
   const statusNotes = [];
   if (!entries.length) {
-    statusNotes.push("Add at least one log before submitting.");
+    statusNotes.push("Add at least one daily entry to start your week.");
+  }
+  if (canAddMoreRows && studentCanEdit) {
+    statusNotes.push(
+      `You can still add ${totalDays - entries.length} more day${totalDays - entries.length === 1 ? "" : "s"} this week.`,
+    );
   }
   if (hasIncompleteFields) {
     statusNotes.push(
-      "Days without time out are automatically timed out during weekly submission.",
+      "Each day is submitted individually. Add time out and daily tasks before submitting that day.",
+    );
+  }
+  if (hasSubmittableEntries && studentCanEdit) {
+    statusNotes.push(
+      "Draft/declined entries are ready for per-day submission from the table below.",
     );
   }
   if (state === "company_returned") {
@@ -108,7 +121,9 @@ const buildWeekSummary = (entries = []) => {
     );
   }
   if (state === "company_review") {
-    statusNotes.push("Waiting for company reviewer.");
+    statusNotes.push(
+      "Some submitted days are waiting for company review. Other rows can still be added/submitted.",
+    );
   }
   if (state === "approved") {
     statusNotes.push("Company approved — this week is finalized.");
@@ -122,7 +137,6 @@ const buildWeekSummary = (entries = []) => {
     counts,
     studentCanEdit,
     companyCanEdit: state === "company_review",
-    canSubmitToCompany,
     statusNotes,
   };
 };
@@ -215,7 +229,7 @@ function StudentTimesheet() {
         (sum, e) => sum + (e.totalHours || 0),
         0,
       );
-      const summary = buildWeekSummary(weekEntries);
+      const summary = buildWeekSummary(weekEntries, 7);
 
       weeks.push({
         number: weekNumber,
@@ -244,24 +258,22 @@ function StudentTimesheet() {
     () => ({
       studentCanEdit: currentWeekSummary.studentCanEdit,
       companyCanEdit: currentWeekSummary.companyCanEdit,
-      canSubmitToCompany: currentWeekSummary.canSubmitToCompany,
     }),
     [currentWeekSummary],
   );
   const submissionMessage = useMemo(() => {
+    if (currentWeekSummary.state === "approved") {
+      return "Company approved — this week is finalized.";
+    }
+
+    if (currentWeekSummary.state === "company_returned") {
+      return "Company requested changes. Update the flagged days.";
+    }
+
     if (permissions.studentCanEdit) {
-      return "You can still add or edit logs before submitting.";
+      return "Use each row to submit entries individually to company.";
     }
-    switch (currentWeekSummary.state) {
-      case "company_review":
-        return "Awaiting company review.";
-      case "approved":
-        return "Company approved — this week is finalized.";
-      case "company_returned":
-        return "Company requested changes. Update the flagged days.";
-      default:
-        return "";
-    }
+    return "Awaiting company review.";
   }, [currentWeekSummary.state, permissions.studentCanEdit]);
   const activeStepIndex = useMemo(
     () =>
@@ -272,15 +284,15 @@ function StudentTimesheet() {
   );
 
   const requiredHours = Number(stats.totalRequired || 500);
-  const approvedHours = Number(stats.totalRendered || 0);
+  const loggedHours = Number(stats.totalRendered || 0);
   const remainingHours = Number(
-    stats.remainingHours ?? Math.max(0, requiredHours - approvedHours),
+    stats.remainingHours ?? Math.max(0, requiredHours - loggedHours),
   );
   const progressPercent =
     stats.progressPercentage !== undefined
       ? Number(stats.progressPercentage)
       : requiredHours
-        ? Number(((approvedHours / requiredHours) * 100).toFixed(1))
+        ? Number(((loggedHours / requiredHours) * 100).toFixed(1))
         : 0;
 
   // Handle entry updates
@@ -337,31 +349,6 @@ function StudentTimesheet() {
     a.click();
     window.URL.revokeObjectURL(url);
     toast.success(`Week ${currentWeek.number} exported successfully!`);
-  };
-
-  // Handle Bulk Submission to Company
-  const handleSubmitToCompany = async () => {
-    if (!currentWeek || !permissions.canSubmitToCompany) {
-      toast.error("This week is not ready to submit to the company yet.");
-      return;
-    }
-
-    if (
-      window.confirm(
-        "Submit your weekly logs to company? You won't be able to edit them after this.",
-      )
-    ) {
-      try {
-        await api.put("/student/timesheets/submit-week", {
-          weekStart: currentWeek.start.toISOString(),
-          weekEnd: currentWeek.end.toISOString(),
-        });
-        toast.success("Week submitted to company supervisor!");
-        fetchData(); // Refresh the grid
-      } catch (err) {
-        toast.error(err.response?.data?.message || "Failed to submit");
-      }
-    }
   };
 
   if (loading) {
@@ -443,10 +430,10 @@ function StudentTimesheet() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-green-100 text-sm font-medium">
-                    Company Approved
+                    Logged Hours
                   </p>
                   <p className="text-3xl font-bold mt-1">
-                    {approvedHours.toFixed(1)}h
+                    {loggedHours.toFixed(1)}h
                   </p>
                 </div>
                 <CheckCircle className="text-green-200" size={40} />
@@ -479,7 +466,7 @@ function StudentTimesheet() {
                     {progressPercent.toFixed(1)}%
                   </p>
                   <p className="text-xs text-blue-100 mt-1">
-                    Based on company-approved hours
+                    Based on all logged daily hours
                   </p>
                 </div>
                 <BarChart3 className="text-blue-200" size={40} />
@@ -628,8 +615,8 @@ function StudentTimesheet() {
                 {currentWeekSummary.counts.company_declined || 0}
               </div>
               <div className="p-3 rounded-lg bg-emerald-50 text-emerald-700 font-semibold">
-                Company Approved:{" "}
-                {currentWeekSummary.counts.company_approved || 0}
+                Submitted to Company:{" "}
+                {currentWeekSummary.counts.submitted_to_company || 0}
               </div>
             </div>
 
@@ -728,21 +715,6 @@ function StudentTimesheet() {
             </p>
 
             <div className="flex gap-2 flex-wrap justify-end">
-              {permissions.studentCanEdit && (
-                <Button
-                  onClick={handleSubmitToCompany}
-                  disabled={!permissions.canSubmitToCompany}
-                  className={`text-white ${
-                    permissions.canSubmitToCompany
-                      ? "bg-purple-600 hover:bg-purple-700"
-                      : "bg-gray-300 cursor-not-allowed"
-                  }`}
-                >
-                  <Send size={16} className="mr-2" />
-                  Submit to Company
-                </Button>
-              )}
-
               {currentWeekSummary.state === "company_review" && (
                 <Button disabled className="bg-amber-100 text-amber-700">
                   <Clock size={16} className="mr-2" /> Waiting for Company

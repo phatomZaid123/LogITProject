@@ -1,8 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user.js";
 
-
-
 const protect = async (req, res, next) => {
   //read and decode cookie
   let token = req.cookies.jwt;
@@ -15,6 +13,12 @@ const protect = async (req, res, next) => {
 
     req.user = await User.findById(decoded.id).select("-password");
 
+    if (!req.user) {
+      return res
+        .status(401)
+        .json({ message: "User not found for this session" });
+    }
+
     next();
   } catch (error) {
     res.status(401).json({ message: "Invalid token" });
@@ -23,6 +27,10 @@ const protect = async (req, res, next) => {
 
 const authorize = (...roles) => {
   return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized request" });
+    }
+
     if (!roles.includes(req.user.role)) {
       return res
         .status(403)

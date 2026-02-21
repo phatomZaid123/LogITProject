@@ -6,56 +6,26 @@ import {
   CardTitle,
   CardDescription,
 } from "../../components/ui/Card";
-import Button from "../../components/ui/Button";
-import {
-  Bell,
-  Calendar,
-  ClipboardList,
-  Clock,
-  LineChart,
-  RefreshCcw,
-  Users,
-} from "lucide-react";
+import { Bell, Clock, Users } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
-
-const parseDate = (value) => {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-};
-
-const getRelativeTime = (value) => {
-  const date = parseDate(value);
-  if (!date) return "Unknown";
-  const diffMs = Date.now() - date.getTime();
-  const minutes = Math.floor(diffMs / 60000);
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-};
+import { useNavigate } from "react-router-dom";
 
 function CompanyHome() {
-  const { api, user } = useAuth();
+  const navigate = useNavigate();
+  const { api } = useAuth();
   const [students, setStudents] = useState([]);
-  const [tasks, setTasks] = useState([]);
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
     try {
-      const [studentsRes, taskRes, pendingRes] = await Promise.all([
+      const [studentsRes, pendingRes] = await Promise.all([
         api.get("/company/assignedInterns"),
-        api.get("/company/tasks"),
         api.get("/company/pending-approvals"),
       ]);
       setStudents(studentsRes.data || []);
-      setTasks(taskRes.data?.tasks || []);
       setPending(pendingRes.data || []);
     } catch (error) {
       console.error("Company dashboard fetch error:", error);
@@ -71,18 +41,27 @@ function CompanyHome() {
     fetchDashboard();
   }, [fetchDashboard]);
 
-  const taskCountByStudent = useMemo(() => {
-    return tasks.reduce((acc, task) => {
-      const studentId = task.assigned_to?._id?.toString();
+  const pendingByStudent = useMemo(() => {
+    return pending.reduce((acc, item) => {
+      const studentId = item?._id?.toString();
       if (!studentId) return acc;
-      acc[studentId] = (acc[studentId] || 0) + 1;
+      acc[studentId] = Number(item?.submittedCount || 0);
       return acc;
     }, {});
-  }, [tasks]);
+  }, [pending]);
+
+  const topStudents = useMemo(() => {
+    return [...students]
+      .sort(
+        (a, b) =>
+          Number(b?.ojt_hours_completed || 0) -
+          Number(a?.ojt_hours_completed || 0),
+      )
+      .slice(0, 10);
+  }, [students]);
 
   const summary = useMemo(() => {
     const totalStudents = students.length;
-    const totalTasks = tasks.length;
     const hoursTracked = students.reduce(
       (sum, student) => sum + (student.ojt_hours_completed || 0),
       0,
@@ -99,38 +78,14 @@ function CompanyHome() {
         ) / 10
       : 0;
     const pendingCount = pending.length;
-    const dueSoon = tasks.filter((task) => {
-      const due = parseDate(task.dueDate);
-      if (!due || task.status === "completed") return false;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const weekAhead = new Date(today);
-      weekAhead.setDate(weekAhead.getDate() + 7);
-      return due >= today && due <= weekAhead;
-    }).length;
 
     return {
       totalStudents,
-      totalTasks,
       hoursTracked,
       avgProgress: Number.isFinite(avgProgress) ? avgProgress : 0,
       pendingCount,
-      dueSoon,
     };
-  }, [students, tasks, pending]);
-
-  const recentActivity = useMemo(() => {
-    return tasks
-      .slice()
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, 5)
-      .map((task) => ({
-        title: task.title,
-        student: task.assigned_to?.name || "Intern",
-        status: task.status,
-        timestamp: getRelativeTime(task.createdAt),
-      }));
-  }, [tasks]);
+  }, [students, pending]);
 
   const statCards = [
     {
@@ -139,13 +94,6 @@ function CompanyHome() {
       subtext: `${summary.avgProgress}% avg progress`,
       icon: Users,
       gradient: "from-sky-500 to-blue-600",
-    },
-    {
-      title: "Tasks Assigned",
-      value: summary.totalTasks,
-      subtext: `${summary.dueSoon} due this week`,
-      icon: ClipboardList,
-      gradient: "from-violet-500 to-purple-600",
     },
     {
       title: "Approved Hours",
@@ -175,12 +123,12 @@ function CompanyHome() {
           </h1>
           <p className="text-gray-600 max-w-2xl mt-2">
             Get a live snapshot of every intern, their approved hours, pending
-            submissions, and the tasks driving their outcomes.
+            submissions, and overall progress.
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {statCards.map((card) => {
           const Icon = card.icon;
           return (
@@ -215,7 +163,8 @@ function CompanyHome() {
                 <div>
                   <CardTitle>Intern Progress Monitor</CardTitle>
                   <CardDescription>
-                    Company-approved hours versus requirements
+                    Company-approved hours versus requirements (top 10). Click a
+                    student to view full profile.
                   </CardDescription>
                 </div>
               </div>
@@ -228,43 +177,51 @@ function CompanyHome() {
                       <th className="px-6 py-3 text-left">Student</th>
                       <th className="px-6 py-3 text-left">Progress</th>
                       <th className="px-6 py-3 text-left">Approved Hours</th>
-                      <th className="px-6 py-3 text-left">Tasks</th>
-                      <th className="px-6 py-3 text-left">Status</th>
+                      <th className="px-6 py-3 text-left">
+                        Pending Submissions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y bg-white">
                     {loading ? (
                       <tr>
                         <td
-                          colSpan={5}
+                          colSpan={4}
                           className="px-6 py-6 text-center text-gray-500"
                         >
                           Fetching students...
                         </td>
                       </tr>
-                    ) : students.length === 0 ? (
+                    ) : topStudents.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={5}
+                          colSpan={4}
                           className="px-6 py-6 text-center text-gray-500"
                         >
                           No interns are assigned to your company yet.
                         </td>
                       </tr>
                     ) : (
-                      students.map((student) => {
+                      topStudents.map((student) => {
                         const required = student.ojt_hours_required || 500;
                         const completed = student.ojt_hours_completed || 0;
                         const progress = Math.min(
                           100,
                           Math.round((completed / required) * 100) || 0,
                         );
-
-                        const taskCount =
-                          taskCountByStudent[student._id?.toString()] || 0;
+                        const pendingCount =
+                          pendingByStudent[student._id?.toString()] || 0;
 
                         return (
-                          <tr key={student._id} className="hover:bg-gray-50">
+                          <tr
+                            key={student._id}
+                            className="hover:bg-indigo-50/50 cursor-pointer transition-colors"
+                            onClick={() =>
+                              navigate(
+                                `/company/dashboard/interns/${student._id}`,
+                              )
+                            }
+                          >
                             <td className="px-6 py-4">
                               <div className="font-semibold text-gray-900">
                                 {student.name}
@@ -292,11 +249,10 @@ function CompanyHome() {
                                 {required}h required
                               </p>
                             </td>
-                            <td className="px-6 py-4">{taskCount}</td>
                             <td className="px-6 py-4">
-                              <span
-                                className={`px-3 py-1 rounded-full text-xs font-semibold `}
-                              ></span>
+                              <span className="inline-flex min-w-8 items-center justify-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                                {pendingCount}
+                              </span>
                             </td>
                           </tr>
                         );

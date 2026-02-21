@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -7,9 +7,54 @@ import {
   CardDescription,
 } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
-import { Bell, Lock, User, Save } from "lucide-react";
+import { Save } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import toast from "react-hot-toast";
 
 function DeanSettings() {
+  const { api, refreshUser } = useAuth();
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    faculty: "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const response = await api.get("/auth/users/me");
+        const me = response.data?.user || {};
+        setForm({
+          name: me.name || "",
+          email: me.email || "",
+          faculty: me.faculty || "",
+        });
+      } catch (error) {
+        toast.error("Failed to load profile");
+      }
+    };
+
+    load();
+  }, [api]);
+
+  const handleChange = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      await api.put("/auth/users/me", form);
+      await refreshUser();
+      toast.success("Profile updated");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to update profile");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
@@ -19,7 +64,6 @@ function DeanSettings() {
         </p>
       </div>
 
-      {/* Profile Settings */}
       <Card elevated>
         <CardHeader withBorder>
           <CardTitle>Profile Settings</CardTitle>
@@ -33,7 +77,8 @@ function DeanSettings() {
               </label>
               <input
                 type="text"
-                defaultValue="Dr. Jane Smith"
+                value={form.name}
+                onChange={(e) => handleChange("name", e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
@@ -43,71 +88,29 @@ function DeanSettings() {
               </label>
               <input
                 type="email"
-                defaultValue="jane@university.edu"
+                value={form.email}
+                onChange={(e) => handleChange("email", e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
-            <Button variant="primary" className="mt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Faculty
+              </label>
+              <input
+                type="text"
+                value={form.faculty}
+                onChange={(e) => handleChange("faculty", e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+            <Button
+              variant="primary"
+              className="mt-4"
+              onClick={handleSave}
+              disabled={saving}
+            >
               <Save size={18} className="mr-2" /> Save Changes
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Notification Settings */}
-      <Card elevated>
-        <CardHeader withBorder>
-          <CardTitle>Notifications</CardTitle>
-          <CardDescription>Manage notification preferences</CardDescription>
-        </CardHeader>
-        <CardContent padding="lg">
-          <div className="space-y-4">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                defaultChecked
-                className="w-4 h-4 text-purple-600 rounded"
-              />
-              <span className="text-sm text-gray-700">
-                Email notifications for new complaints
-              </span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                defaultChecked
-                className="w-4 h-4 text-purple-600 rounded"
-              />
-              <span className="text-sm text-gray-700">
-                Daily summary reports
-              </span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                className="w-4 h-4 text-purple-600 rounded"
-              />
-              <span className="text-sm text-gray-700">
-                System alerts and updates
-              </span>
-            </label>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Security Settings */}
-      <Card elevated>
-        <CardHeader withBorder>
-          <CardTitle>Security</CardTitle>
-          <CardDescription>Manage your account security</CardDescription>
-        </CardHeader>
-        <CardContent padding="lg">
-          <div className="space-y-4">
-            <Button variant="outline" fullWidth>
-              <Lock size={18} className="mr-2" /> Change Password
-            </Button>
-            <Button variant="outline" fullWidth>
-              <User size={18} className="mr-2" /> Two-Factor Authentication
             </Button>
           </div>
         </CardContent>

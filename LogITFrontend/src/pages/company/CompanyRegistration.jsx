@@ -1,8 +1,24 @@
 import { useState, useEffect } from "react";
-import { useSearchParams, useNavigate,Link } from "react-router-dom";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
 
 import { Building2, Mail, Lock, MapPin, User, Briefcase } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+
+const normalizeText = (value = "") => value.trim().replace(/\s+/g, " ");
+const normalizeEmail = (value = "") => normalizeText(value).toLowerCase();
+
+const getPasswordStrength = (password = "") => {
+  let score = 0;
+  if (password.length >= 8) score += 1;
+  if (/[A-Z]/.test(password)) score += 1;
+  if (/[a-z]/.test(password)) score += 1;
+  if (/\d/.test(password)) score += 1;
+  if (/[^A-Za-z0-9]/.test(password)) score += 1;
+
+  if (score <= 2) return { label: "Weak", color: "text-red-600" };
+  if (score <= 4) return { label: "Medium", color: "text-amber-600" };
+  return { label: "Strong", color: "text-green-600" };
+};
 
 const CompanyRegistration = () => {
   const [searchParams] = useSearchParams();
@@ -14,6 +30,7 @@ const CompanyRegistration = () => {
     companyName: "",
     companyEmail: "",
     companyPassword: "",
+    confirmPassword: "",
     companyAddress: "",
     companyContactPersonName: "",
     companyContactPersonEmail: "",
@@ -22,6 +39,7 @@ const CompanyRegistration = () => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const passwordStrength = getPasswordStrength(formData.companyPassword);
 
   useEffect(() => {
     if (!token) {
@@ -44,9 +62,16 @@ const CompanyRegistration = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    const normalizedValue = name.toLowerCase().includes("email")
+      ? normalizeEmail(value)
+      : name === "jobTittle"
+        ? value
+        : normalizeText(value);
+
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: normalizedValue,
     }));
   };
 
@@ -55,19 +80,32 @@ const CompanyRegistration = () => {
     setLoading(true);
     setError("");
 
-    try {
-      const payload = {
-        companyName: formData.companyName,
-        companyEmail: formData.companyEmail,
-        companyPassword: formData.companyPassword,
-        companyAddress: formData.companyAddress,
-        companyContactPersonName: formData.companyContactPersonName,
-        companyContactPersonEmail: formData.companyContactPersonEmail,
-        jobTittle: formData.jobTittle,
-        token: token,
-      };
+    const serializedPayload = {
+      companyName: normalizeText(formData.companyName),
+      companyEmail: normalizeEmail(formData.companyEmail),
+      companyPassword: formData.companyPassword,
+      confirmPassword: formData.confirmPassword,
+      companyAddress: normalizeText(formData.companyAddress),
+      companyContactPersonName: normalizeText(
+        formData.companyContactPersonName,
+      ),
+      companyContactPersonEmail: normalizeEmail(
+        formData.companyContactPersonEmail,
+      ),
+      jobTittle: normalizeText(formData.jobTittle),
+      token: token,
+    };
 
-      await api.post("/auth/users/companies/register", payload);
+    if (
+      serializedPayload.companyPassword !== serializedPayload.confirmPassword
+    ) {
+      setLoading(false);
+      setError("Passwords do not match.");
+      return;
+    }
+
+    try {
+      await api.post("/auth/users/companies/register", serializedPayload);
 
       alert("Registration Successful! You can now log in.");
       navigate("/login");
@@ -148,6 +186,26 @@ const CompanyRegistration = () => {
                 name="companyPassword"
                 placeholder="Password"
                 value={formData.companyPassword}
+                onChange={handleChange}
+                required
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              />
+            </div>
+
+            <div className="text-xs -mt-2 mb-2">
+              Password strength:{" "}
+              <span className={`font-semibold ${passwordStrength.color}`}>
+                {passwordStrength.label}
+              </span>
+            </div>
+
+            <div className="relative mb-4">
+              <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
+              <input
+                type="password"
+                name="confirmPassword"
+                placeholder="Confirm Password"
+                value={formData.confirmPassword}
                 onChange={handleChange}
                 required
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -235,7 +293,10 @@ const CompanyRegistration = () => {
 
           <p className="text-center text-gray-600 text-sm mt-4">
             Already have an account?{" "}
-            <Link to="/CompanyLogin" className="text-green-600 hover:text-green-700 font-semibold">
+            <Link
+              to="/CompanyLogin"
+              className="text-green-600 hover:text-green-700 font-semibold"
+            >
               Sign in
             </Link>
           </p>

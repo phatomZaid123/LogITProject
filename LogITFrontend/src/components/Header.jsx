@@ -2,14 +2,21 @@ import { Bell, Settings, LogOut, User, ChevronDown } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import Notification from "./Notification";
+import { useNavigate } from "react-router-dom";
+import LogITLogo from "../assets/LogITLogo.jpeg";
 
 function Header() {
   const { logout, user, api } = useAuth();
+  const navigate = useNavigate();
   const [showProfile, setShowProfile] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isNotificationsLoading, setIsNotificationsLoading] = useState(false);
+
+  const profileImageSrc = user?.profile_image
+    ? `http://localhost:5000${user.profile_image}`
+    : LogITLogo;
 
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -82,6 +89,18 @@ function Header() {
     }
   };
 
+  const getProfileRoute = () => {
+    if (user?.role === "student") return "/student/dashboard/profile";
+    if (user?.role === "company") return "/company/dashboard/settings";
+    if (user?.role === "dean") return "/dean/dashboard/settings";
+    return "/";
+  };
+
+  const handleGoToProfile = () => {
+    navigate(getProfileRoute());
+    setShowProfile(false);
+  };
+
   return (
     <header className="sticky top-0 z-30">
       <div className="m-2 rounded-xl border border-gray-200 bg-white/90 backdrop-blur shadow-sm">
@@ -93,7 +112,13 @@ function Header() {
             <div className="flex flex-wrap items-baseline gap-2">
               <h1 className="text-2xl font-semibold text-gray-900">
                 <span className="text-purple-900">Hi,</span>{" "}
-                <span className="text-purple-700">{user?.name || "User"}</span>
+                <button
+                  type="button"
+                  onClick={handleGoToProfile}
+                  className="text-purple-700 hover:underline"
+                >
+                  {user?.name || "User"}
+                </button>
               </h1>
               <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold uppercase text-purple-700">
                 {user?.role || "member"}
@@ -127,7 +152,10 @@ function Header() {
               )}
             </div>
 
-            <button className="rounded-lg border border-gray-200 bg-white p-2 text-gray-600 shadow-sm hover:bg-gray-50">
+            <button
+              onClick={handleGoToProfile}
+              className="rounded-lg border border-gray-200 bg-white p-2 text-gray-600 shadow-sm hover:bg-gray-50"
+            >
               <Settings size={18} />
             </button>
 
@@ -136,9 +164,11 @@ function Header() {
                 onClick={() => setShowProfile(!showProfile)}
                 className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 text-sm font-bold text-white">
-                  {user?.name?.[0]?.toUpperCase() || "U"}
-                </div>
+                <img
+                  src={profileImageSrc}
+                  alt="Profile"
+                  className="h-8 w-8 rounded-full object-cover border border-gray-200"
+                />
                 <span className="hidden sm:block">{user?.name || "User"}</span>
                 <ChevronDown size={16} />
               </button>
@@ -146,12 +176,20 @@ function Header() {
               {showProfile && (
                 <div className="absolute right-0 mt-2 w-56 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
                   <div className="px-4 py-3 border-b border-gray-100">
+                    <img
+                      src={profileImageSrc}
+                      alt="Profile"
+                      className="h-12 w-12 rounded-full object-cover border border-gray-200 mb-2"
+                    />
                     <p className="text-sm font-semibold text-gray-900">
                       {user?.name}
                     </p>
                     <p className="text-xs text-gray-500">{user?.email}</p>
                   </div>
-                  <button className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                  <button
+                    onClick={handleGoToProfile}
+                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
                     <User size={16} /> Profile
                   </button>
                   <button

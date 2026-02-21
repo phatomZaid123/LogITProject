@@ -3,7 +3,13 @@ import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 import { Edit2, Save, X, CheckCircle } from "lucide-react";
 
-const CompanyTimesheetGrid = ({ isEditable, rows, displayRows, setRows }) => {
+const CompanyTimesheetGrid = ({
+  isEditable,
+  rows,
+  displayRows,
+  setRows,
+  onUpdate,
+}) => {
   const { api, user } = useAuth();
   const userRole = user?.role;
   const [editingId, setEditingId] = useState(null);
@@ -24,14 +30,28 @@ const CompanyTimesheetGrid = ({ isEditable, rows, displayRows, setRows }) => {
   // Save edited row
   const handleSave = async (rowId) => {
     try {
-      const response = await api.put(`/student/timesheets/${rowId}`, editData);
+      const payload = {
+        timeIn: editData.timeIn,
+        timeOut: editData.timeOut,
+        breakMinutes: Number(editData.breakMinutes || 0),
+      };
+
+      const endpoint =
+        userRole === "company"
+          ? `/company/timesheets/${rowId}/approve`
+          : `/student/timesheets/${rowId}`;
+
+      const response = await api.put(endpoint, payload);
+
+      const updatedRow = response?.data?.data || response?.data;
 
       // Update local state
-      setRows((prev) => prev.map((r) => (r._id === rowId ? response.data : r)));
+      setRows((prev) => prev.map((r) => (r._id === rowId ? updatedRow : r)));
 
       setEditingId(null);
       setEditData({});
       toast.success("Entry updated successfully");
+      onUpdate?.();
     } catch (err) {
       toast.error(err.response?.data?.message || "Update failed");
     }
@@ -50,6 +70,7 @@ const CompanyTimesheetGrid = ({ isEditable, rows, displayRows, setRows }) => {
       toast.success(
         `Entry ${newStatus === "company_approved" ? "approved" : "declined"}`,
       );
+      onUpdate?.();
     } catch (err) {
       toast.error(err.response?.data?.message || "Status update failed");
     }
@@ -88,21 +109,6 @@ const CompanyTimesheetGrid = ({ isEditable, rows, displayRows, setRows }) => {
         bg: "bg-red-100",
         text: "text-red-700",
         label: "Declined",
-      },
-      submitted_to_dean: {
-        bg: "bg-blue-100",
-        text: "text-blue-700",
-        label: "With Dean",
-      },
-      dean_approved: {
-        bg: "bg-emerald-100",
-        text: "text-emerald-700",
-        label: "Approved ✓",
-      },
-      dean_declined: {
-        bg: "bg-red-100",
-        text: "text-red-700",
-        label: "Dean Declined",
       },
       edited_by_company: {
         bg: "bg-purple-100",
@@ -163,6 +169,9 @@ const CompanyTimesheetGrid = ({ isEditable, rows, displayRows, setRows }) => {
             </th>
             <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
               Total Hours
+            </th>
+            <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+              Daily Tasks
             </th>
             <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
               Status
@@ -252,6 +261,13 @@ const CompanyTimesheetGrid = ({ isEditable, rows, displayRows, setRows }) => {
                     </span>
                   </td>
 
+                  {/* Daily Tasks */}
+                  <td className="px-4 py-4">
+                    <p className="text-sm text-gray-700 max-w-md whitespace-pre-wrap wrap-break-word">
+                      {row.dailyLog?.trim() ? row.dailyLog : "--"}
+                    </p>
+                  </td>
+
                   {/* Status */}
                   <td className="px-4 py-4 whitespace-nowrap">
                     {getStatusBadge(row.status)}
@@ -330,7 +346,7 @@ const CompanyTimesheetGrid = ({ isEditable, rows, displayRows, setRows }) => {
           ) : (
             <tr>
               <td
-                colSpan={7}
+                colSpan={8}
                 className="px-4 py-6 text-center text-sm text-gray-500"
               >
                 No entries match the selected filter.

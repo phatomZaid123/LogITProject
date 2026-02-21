@@ -1,9 +1,13 @@
 import { Link } from "react-router-dom";
 
 function StudentList({ students = [], loading = false }) {
-  
-  console.log("Rendering StudentList with students:", students, "and loading:", loading);
-  
+  console.log(
+    "Rendering StudentList with students:",
+    students,
+    "and loading:",
+    loading,
+  );
+
   return (
     <div className="w-full bg-linear-to-b from-gray-50 to-white rounded-lg px-0 py-0 text-gray-900">
       {loading ? (
@@ -35,7 +39,7 @@ function StudentList({ students = [], loading = false }) {
                   scope="col"
                   className="px-6 py-4 font-semibold text-gray-800"
                 >
-                  Admission No.
+                  Student ID
                 </th>
                 <th
                   scope="col"
@@ -145,12 +149,12 @@ function StudentList({ students = [], loading = false }) {
                           className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
                             student.ojt_status === "completed"
                               ? "bg-green-100 text-green-700"
-                              : student.ojt_status === "active"
+                              : student.ojt_status === "ongoing"
                                 ? "bg-blue-100 text-blue-700"
                                 : "bg-gray-100 text-gray-700"
                           }`}
                         >
-                          {student.ojt_status || "Ongoing"}
+                          {student.ojt_status || "ongoing"}
                         </span>
                       </Link>
                     </td>

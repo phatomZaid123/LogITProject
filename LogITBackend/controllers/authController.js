@@ -6,6 +6,29 @@ import Batch from "../models/batch.js";
 import Student from "../models/student.js";
 import Company from "../models/company.js";
 
+const normalizeText = (value = "") => String(value).trim();
+const normalizeEmail = (value = "") => normalizeText(value).toLowerCase();
+const normalizeCourse = (value = "") => normalizeText(value).toUpperCase();
+const normalizeAdmissionNumber = (value = "") => {
+  const digits = String(value).replace(/\D/g, "");
+  return digits ? Number(digits) : null;
+};
+
+const buildUserResponse = (user) => ({
+  id: user._id,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  faculty: user.faculty,
+  student_admission_number: user.student_admission_number,
+  student_course: user.student_course,
+  company_address: user.company_address,
+  contact_person: user.contact_person,
+  job_title: user.job_title,
+  company_name: user.company_name,
+  profile_image: user.profile_image,
+});
+
 const getMe = (req, res) => {
   try {
     const user = req.user;
@@ -16,18 +39,110 @@ const getMe = (req, res) => {
 
     res.status(200).json({
       success: true,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role, // "dean", "student", or "company"
-        faculty: user.faculty, // Only for Deans
-        student_id: user.student_id, // Only for Students
-        company_name: user.company_name, // Only for Companies
-      },
+      user: buildUserResponse(user),
     });
   } catch (error) {
     console.error(error.message);
+  }
+};
+
+const updateMe = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const {
+      name,
+      email,
+      faculty,
+      student_course,
+      company_address,
+      job_title,
+      contact_person,
+      contact_person_name,
+      contact_person_email,
+    } = req.body || {};
+
+    if (name !== undefined) {
+      user.name = name?.trim();
+    }
+
+    if (email !== undefined) {
+      const normalizedEmail = email?.trim().toLowerCase();
+      if (!normalizedEmail) {
+        return res.status(400).json({ message: "Email cannot be empty" });
+      }
+
+      if (normalizedEmail !== user.email) {
+        const existing = await User.findOne({ email: normalizedEmail }).select(
+          "_id",
+        );
+        if (existing && existing._id.toString() !== user._id.toString()) {
+          return res.status(400).json({ message: "Email already in use" });
+        }
+      }
+
+      user.email = normalizedEmail;
+    }
+
+    if (user.role === "dean" && faculty !== undefined) {
+      user.faculty = faculty?.trim();
+    }
+
+    if (user.role === "student" && student_course !== undefined) {
+      user.student_course = student_course?.trim().toUpperCase();
+    }
+
+    if (user.role === "company") {
+      if (company_address !== undefined) {
+        user.company_address = company_address?.trim();
+      }
+      if (job_title !== undefined) {
+        user.job_title = job_title?.trim();
+      }
+
+      const hasFlatContactPersonValues =
+        contact_person_name !== undefined || contact_person_email !== undefined;
+
+      if (contact_person !== undefined || hasFlatContactPersonValues) {
+        user.contact_person = {
+          name:
+            contact_person_name !== undefined
+              ? contact_person_name?.trim()
+              : contact_person?.name !== undefined
+                ? contact_person.name?.trim()
+                : user.contact_person?.name,
+          email:
+            contact_person_email !== undefined
+              ? contact_person_email?.trim().toLowerCase()
+              : contact_person?.email !== undefined
+                ? contact_person.email?.trim().toLowerCase()
+                : user.contact_person?.email,
+        };
+      }
+    }
+
+    if (req.file?.filename) {
+      user.profile_image = `/uploads/${req.file.filename}`;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      user: buildUserResponse(user),
+    });
+  } catch (error) {
+    console.error("Update Me Error:", error);
+    res.status(500).json({ message: "Failed to update profile" });
   }
 };
 
@@ -37,15 +152,40 @@ const registerStudent = async (req, res) => {
       name,
       email,
       password,
+      confirmPassword,
       admission_number,
       student_course,
       token, // This is the UUID from the URL (e.g. "550e8400-e29b...")
     } = req.body;
 
-    console.log("Received Token:", token);
+    const normalizedName = normalizeText(name);
+    const normalizedEmail = normalizeEmail(email);
+    const normalizedCourse = normalizeCourse(student_course);
+    const normalizedAdmissionNumber =
+      normalizeAdmissionNumber(admission_number);
+    const normalizedToken = normalizeText(token);
+
+    if (
+      !normalizedName ||
+      !normalizedEmail ||
+      !password ||
+      !normalizedAdmissionNumber ||
+      !normalizedCourse ||
+      !normalizedToken
+    ) {
+      return res.status(400).json({ message: "Please review inputs" });
+    }
+
+    if (confirmPassword !== undefined && password !== confirmPassword) {
+      return res.status(400).json({ message: "Passwords do not match" });
+    }
+
+    console.log("Received Token:", normalizedToken);
 
     // We look for a batch where 'student_invite_code' matches the 'token' provided
-    const targetBatch = await Batch.findOne({ student_invite_code: token });
+    const targetBatch = await Batch.findOne({
+      student_invite_code: normalizedToken,
+    });
 
     if (!targetBatch) {
       return res.status(404).json({ message: "Invalid Registration Link" });
@@ -61,11 +201,11 @@ const registerStudent = async (req, res) => {
     console.log(admission_number);
     // Create the Student
     const newStudent = new Student({
-      name,
-      email,
+      name: normalizedName,
+      email: normalizedEmail,
       password,
-      student_admission_number: admission_number,
-      student_course: student_course,
+      student_admission_number: normalizedAdmissionNumber,
+      student_course: normalizedCourse,
       student_batch: targetBatch._id,
       ojt_hours_required: 500, // Default value
       role: "student",
@@ -91,34 +231,48 @@ const registerCompany = async (req, res) => {
       companyName,
       companyEmail,
       companyPassword,
+      confirmPassword,
       companyAddress,
       companyContactPersonName,
       companyContactPersonEmail,
       jobTittle,
     } = req.body;
 
+    const normalizedCompanyName = normalizeText(companyName);
+    const normalizedCompanyEmail = normalizeEmail(companyEmail);
+    const normalizedCompanyAddress = normalizeText(companyAddress);
+    const normalizedContactPersonName = normalizeText(companyContactPersonName);
+    const normalizedContactPersonEmail = normalizeEmail(
+      companyContactPersonEmail,
+    );
+    const normalizedJobTitle = normalizeText(jobTittle);
+
     if (
-      !companyName ||
-      !companyEmail ||
+      !normalizedCompanyName ||
+      !normalizedCompanyEmail ||
       !companyPassword ||
-      !companyAddress ||
-      !companyContactPersonName ||
-      !companyContactPersonEmail ||
-      !jobTittle
+      !normalizedCompanyAddress ||
+      !normalizedContactPersonName ||
+      !normalizedContactPersonEmail ||
+      !normalizedJobTitle
     ) {
       return res.status(401).json({ message: "Please review inputs" });
     }
 
+    if (confirmPassword !== undefined && companyPassword !== confirmPassword) {
+      return res.status(400).json({ message: "Passwords do not match" });
+    }
+
     const newCompany = new Company({
-      name: companyName,
-      email: companyEmail,
+      name: normalizedCompanyName,
+      email: normalizedCompanyEmail,
       password: companyPassword,
-      company_address: companyAddress,
+      company_address: normalizedCompanyAddress,
       contact_person: {
-        name: companyContactPersonName,
-        email: companyContactPersonEmail,
+        name: normalizedContactPersonName,
+        email: normalizedContactPersonEmail,
       },
-      job_title: jobTittle,
+      job_title: normalizedJobTitle,
       role: "company",
     });
 
@@ -182,6 +336,7 @@ const login = async (req, res) => {
         name: user.name,
         role: user.role,
         faculty: user.faculty,
+        profile_image: user.profile_image,
       },
     });
   } catch (e) {
@@ -286,4 +441,5 @@ export {
   registerCompany,
   forgotPassword,
   resetPassword,
+  updateMe,
 };

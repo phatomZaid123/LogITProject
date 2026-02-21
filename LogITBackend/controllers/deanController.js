@@ -2,9 +2,11 @@ import Batch from "../models/batch.js";
 import QRCode from "qrcode";
 import Student from "../models/student.js";
 import mongoose from "mongoose";
+import crypto from "crypto";
 import Company from "../models/company.js";
 import { LOGBOOK } from "../models/logbook.js";
 import { TIMESHEET } from "../models/timesheet.js";
+import { createNotification } from "../utils/notificationUtils.js";
 
 const enrichCompaniesWithAssignments = async (companies = []) => {
   if (!companies.length) return companies;
@@ -85,19 +87,37 @@ const attachStudentHourStats = async (students = []) => {
   });
 };
 
+const attachOjtStatus = (students = []) => {
+  if (!students.length) return students;
+
+  return students.map((student) => ({
+    ...student,
+    ojt_status: student.completed_program ? "completed" : "ongoing",
+  }));
+};
+
 //creating of new batch by dean
 const createBatch = async (req, res) => {
   try {
     const { batchName, batchYear } = req.body;
-    if (!batchName || !batchYear) {
-      return res.status(401).json({ message: "Please enter correct inputs" });
+    const normalizedBatchName = batchName?.trim();
+    const normalizedBatchYear = Number(batchYear);
+
+    if (!normalizedBatchName || !Number.isInteger(normalizedBatchYear)) {
+      return res.status(400).json({ message: "Please enter correct inputs" });
     }
 
-    const existingBatch = await Batch.findOne({ session_name: batchName });
+    if (!req.user?._id) {
+      return res.status(401).json({ message: "Unauthorized request" });
+    }
+
+    const existingBatch = await Batch.findOne({
+      session_name: normalizedBatchName,
+    });
     if (existingBatch) {
       return res
         .status(400)
-        .json({ message: `Batch ${batchName} already exists` });
+        .json({ message: `Batch ${normalizedBatchName} already exists` });
     }
 
     await Batch.updateMany({}, { isActive: false });
@@ -106,8 +126,8 @@ const createBatch = async (req, res) => {
     const companyInviteToken = crypto.randomUUID();
 
     const newBatch = new Batch({
-      session_name: batchName,
-      year: batchYear,
+      session_name: normalizedBatchName,
+      year: normalizedBatchYear,
       created_by: req.user._id,
       isActive: true,
       student_invite_code: studentInviteToken,
@@ -120,6 +140,7 @@ const createBatch = async (req, res) => {
       message: `Batch ${batchName} created successfully`,
     });
   } catch (error) {
+    console.error("Create Batch Error:", error);
     res
       .status(500)
       .json({ success: false, message: "Server error", error: error.message });
@@ -184,8 +205,9 @@ const filterStudentsByBatch = async (req, res) => {
     });
 
     const studentsWithHours = await attachStudentHourStats(flattenedStudents);
+    const studentsWithStatus = attachOjtStatus(studentsWithHours);
 
-    res.status(200).json(studentsWithHours);
+    res.status(200).json(studentsWithStatus);
   } catch (error) {
     res.status(500).json({ message: "Server Error", error });
   }
@@ -223,8 +245,9 @@ const filterStudentsByCourse = async (req, res) => {
     });
 
     const studentsWithHours = await attachStudentHourStats(flattenedStudents);
+    const studentsWithStatus = attachOjtStatus(studentsWithHours);
 
-    res.status(200).json(studentsWithHours);
+    res.status(200).json(studentsWithStatus);
   } catch (error) {
     res.status(500).json({ message: "Server Error", error });
   }
@@ -325,9 +348,10 @@ const getAllStudents = async (req, res) => {
     });
 
     const studentsWithHours = await attachStudentHourStats(flattenedStudents);
+    const studentsWithStatus = attachOjtStatus(studentsWithHours);
 
     res.status(200).json({
-      students: studentsWithHours,
+      students: studentsWithStatus,
     });
   } catch (error) {
     console.error("Fetch Error:", error);
@@ -423,8 +447,9 @@ const getAlumniBatchStudents = async (req, res) => {
     });
 
     const studentsWithHours = await attachStudentHourStats(flattenedStudents);
+    const studentsWithStatus = attachOjtStatus(studentsWithHours);
 
-    const alumniStudents = studentsWithHours.map((student) => ({
+    const alumniStudents = studentsWithStatus.map((student) => ({
       ...student,
       approved_hours: Number(student.ojt_hours_completed || 0),
     }));
@@ -462,8 +487,9 @@ const getCompanyProfile = async (req, res) => {
       .lean();
 
     const studentsWithHours = await attachStudentHourStats(students);
+    const studentsWithStatus = attachOjtStatus(studentsWithHours);
 
-    const studentIds = studentsWithHours.map((student) => student._id);
+    const studentIds = studentsWithStatus.map((student) => student._id);
     const lastEntryStats = studentIds.length
       ? await TIMESHEET.aggregate([
           { $match: { student: { $in: studentIds } } },
@@ -481,7 +507,7 @@ const getCompanyProfile = async (req, res) => {
       return acc;
     }, {});
 
-    const enrichedStudents = studentsWithHours.map((student) => {
+    const enrichedStudents = studentsWithStatus.map((student) => {
       const required = student.ojt_hours_required || 500;
       const completed = Number(student.ojt_hours_completed || 0);
       const progress = required
@@ -550,7 +576,7 @@ const getStudentById = async (req, res) => {
     const student = await Student.findById(studentId)
       .select("-password -createdAt -updatedAt -__v -role")
       .populate("student_batch", "session_name year")
-      .populate("assigned_company", "name address");
+      .populate("assigned_company", "name company_address");
 
     if (!student) {
       return res.status(404).json({ message: "Student not found" });
@@ -613,6 +639,22 @@ const reviewStudentLog = async (req, res) => {
       return res.status(404).json({ message: "Logbook entry not found" });
     }
 
+    await createNotification({
+      recipient: updatedLog.created_by?._id,
+      recipientRole: "student",
+      type: "logbook_reviewed",
+      title: "Logbook reviewed by dean",
+      message:
+        status === "approved"
+          ? "Your logbook was approved by the dean."
+          : "Your logbook was declined by the dean.",
+      link: "/student/dashboard/logbook",
+      data: {
+        logId: updatedLog._id,
+        status,
+      },
+    });
+
     res.status(200).json({
       success: true,
       message: `Log has been ${status}`,
@@ -659,11 +701,37 @@ const markStudentCompleted = async (req, res) => {
       { completed_program: true },
       { new: true, runValidators: true },
     ).select(
-      "name email student_admission_number student_course completed_program",
+      "name email student_admission_number student_course completed_program assigned_company",
     );
 
     if (!student) {
       return res.status(404).json({ message: "Student not found" });
+    }
+
+    await createNotification({
+      recipient: student._id,
+      recipientRole: "student",
+      type: "student_completed",
+      title: "OJT completed",
+      message: "Congratulations! You have been marked as completed for OJT.",
+      link: "/student/dashboard",
+      data: {
+        studentId: student._id,
+      },
+    });
+
+    if (student.assigned_company) {
+      await createNotification({
+        recipient: student.assigned_company,
+        recipientRole: "company",
+        type: "student_completed",
+        title: "Intern completed OJT",
+        message: `${student.name} has been marked as completed by the dean.`,
+        link: "/company/dashboard/interns",
+        data: {
+          studentId: student._id,
+        },
+      });
     }
 
     res.status(200).json({
@@ -705,6 +773,22 @@ const reviewTimesheet = async (req, res) => {
     if (deanNotes) timesheet.deanNotes = deanNotes;
 
     await timesheet.save();
+
+    await createNotification({
+      recipient: timesheet.student,
+      recipientRole: "student",
+      type: "timesheet_reviewed",
+      title: "Timesheet reviewed by dean",
+      message:
+        status === "dean_approved"
+          ? "Your timesheet was approved by the dean."
+          : "Your timesheet was declined by the dean.",
+      link: "/student/dashboard/timesheet",
+      data: {
+        entryId: timesheet._id,
+        status,
+      },
+    });
 
     res.status(200).json({
       success: true,
@@ -935,6 +1019,20 @@ const suspendCompany = async (req, res) => {
     company.suspendedBy = req.user._id;
     await company.save();
 
+    await createNotification({
+      recipient: company._id,
+      recipientRole: "company",
+      type: "company_suspension",
+      title: "Account suspended",
+      message:
+        "Your company account has been suspended by the dean. Please contact administration.",
+      link: "/company/dashboard/settings",
+      data: {
+        companyId: company._id,
+        suspended: true,
+      },
+    });
+
     res.status(200).json({
       success: true,
       message: `${company.name} has been suspended successfully`,
@@ -967,6 +1065,19 @@ const unsuspendCompany = async (req, res) => {
     company.suspendedAt = null;
     company.suspendedBy = null;
     await company.save();
+
+    await createNotification({
+      recipient: company._id,
+      recipientRole: "company",
+      type: "company_suspension",
+      title: "Account reactivated",
+      message: "Your company account has been reactivated by the dean.",
+      link: "/company/dashboard/settings",
+      data: {
+        companyId: company._id,
+        suspended: false,
+      },
+    });
 
     res.status(200).json({
       success: true,
