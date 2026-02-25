@@ -1,5 +1,20 @@
 import mongoose from "mongoose";
 
+const MAX_LOGBOOK_WORDS_PER_ANSWER = 200;
+
+const countWords = (value = "") =>
+  String(value).trim().split(/\s+/).filter(Boolean).length;
+
+const buildAnswerField = () => ({
+  type: String,
+  required: true,
+  trim: true,
+  validate: {
+    validator: (value) => countWords(value) <= MAX_LOGBOOK_WORDS_PER_ANSWER,
+    message: `Each answer must not exceed ${MAX_LOGBOOK_WORDS_PER_ANSWER} words.`,
+  },
+});
+
 const logBookSchema = new mongoose.Schema(
   {
     // Week identification
@@ -17,36 +32,12 @@ const logBookSchema = new mongoose.Schema(
     },
 
     // The 6 weekly logbook questions
-    dutiesAndResponsibilities: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    newThingsLearned: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    problemsEncountered: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    solutionsImplemented: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    accomplishmentsAndDeliverables: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    goalsForNextWeek: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+    dutiesAndResponsibilities: buildAnswerField(),
+    newThingsLearned: buildAnswerField(),
+    problemsEncountered: buildAnswerField(),
+    solutionsImplemented: buildAnswerField(),
+    accomplishmentsAndDeliverables: buildAnswerField(),
+    goalsForNextWeek: buildAnswerField(),
 
     // Array of attachments for both documents and pictures
     attachments: [

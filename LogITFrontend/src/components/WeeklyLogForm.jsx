@@ -5,6 +5,11 @@ import Button from "./ui/Button";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 
+const MAX_WORDS_PER_ANSWER = 200;
+
+const countWords = (value = "") =>
+  String(value).trim().split(/\s+/).filter(Boolean).length;
+
 const WeeklyLogForm = ({ onSuccess }) => {
   const { api } = useAuth();
   const [formData, setFormData] = useState({
@@ -24,6 +29,11 @@ const WeeklyLogForm = ({ onSuccess }) => {
   // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    if (countWords(value) > MAX_WORDS_PER_ANSWER) {
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -57,6 +67,14 @@ const WeeklyLogForm = ({ onSuccess }) => {
     const missingFields = requiredFields.filter((field) => !formData[field]);
     if (missingFields.length > 0) {
       toast.error("Please answer all logbook questions");
+      return;
+    }
+
+    const exceededFields = requiredFields.filter(
+      (field) => countWords(formData[field]) > MAX_WORDS_PER_ANSWER,
+    );
+    if (exceededFields.length > 0) {
+      toast.error(`Each answer must not exceed ${MAX_WORDS_PER_ANSWER} words`);
       return;
     }
 
@@ -217,6 +235,16 @@ const WeeklyLogForm = ({ onSuccess }) => {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none resize-none text-sm"
                 required
               />
+              <p
+                className={`mt-1 text-xs ${
+                  countWords(formData[question.name]) > MAX_WORDS_PER_ANSWER
+                    ? "text-red-600"
+                    : "text-gray-500"
+                }`}
+              >
+                {countWords(formData[question.name])}/{MAX_WORDS_PER_ANSWER}{" "}
+                words
+              </p>
             </div>
           ))}
         </div>

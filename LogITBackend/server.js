@@ -12,6 +12,7 @@ import companyRoutes from "./routes/companyRoutes.js";
 import studentRoutes from "./routes/studentRoutes.js";
 import complaintRoutes from "./routes/complaintRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import { errorHandler } from "./middleware/errorMiddleware.js";
 // Load environment variables
 dotenv.config();
 
@@ -48,6 +49,9 @@ app.use("/api/company", companyRoutes);
 app.use("/api/complaints", complaintRoutes);
 // Notification Routes
 app.use("/api/notifications", notificationRoutes);
+
+// Global error handler
+app.use(errorHandler);
 // Connect to the database then Start server
 connectDB().then(() => {
   app.listen(PORT, () => {

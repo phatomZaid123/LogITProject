@@ -24,7 +24,7 @@ import toast from "react-hot-toast";
 import DeanChatbot from "../../components/DeanChatbot";
 
 function DashboardHome() {
-  const { api, user } = useAuth();
+  const { api } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -41,8 +41,6 @@ function DashboardHome() {
         // Fetch dashboard stats
         const statsRes = await api.get("/dean/dashboard/stats");
         setStats(statsRes.data);
-        console.log("Dashboard Stats:", statsRes.data);
-
         const studentsRes = await api.get("/dean/getAllStudents");
         const students = studentsRes.data?.students || [];
 

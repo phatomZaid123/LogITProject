@@ -193,7 +193,7 @@ function StudentSettings() {
               Account Details
             </h2>
 
-            <StudentProfile selfView />
+            <StudentProfile selfView profilePreview={profilePreview} />
           </div>
         </CardContent>
       </Card>

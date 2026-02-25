@@ -24,6 +24,7 @@ import {
   getAlumniBatchStudents,
   markStudentCompleted,
 } from "../controllers/deanController.js";
+import { getDeanStudentReport } from "../controllers/studentReportController.js";
 import express from "express";
 
 const router = express.Router();
@@ -94,6 +95,12 @@ router.get(
   getAlumniBatchStudents,
 );
 router.get("/student/:studentId", protect, authorize("dean"), getStudentById);
+router.get(
+  "/reports/student/:studentId",
+  protect,
+  authorize("dean"),
+  getDeanStudentReport,
+);
 router.get("/logs/pending", protect, authorize("dean"), getPendingLogs);
 router.put("/logs/:id/review", protect, authorize("dean"), reviewStudentLog);
 router.put(

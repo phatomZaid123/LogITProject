@@ -15,6 +15,7 @@ import {
   getCompanyTasks,
   updateTaskStatus,
 } from "../controllers/companyController.js";
+import { getCompanyStudentReport } from "../controllers/studentReportController.js";
 
 const router = express.Router();
 
@@ -53,6 +54,12 @@ router.get(
   protect,
   authorize("company"),
   getAssignedStudentProfile,
+);
+router.get(
+  "/reports/student/:studentId",
+  protect,
+  authorize("company"),
+  getCompanyStudentReport,
 );
 router.put(
   "/approve-all/:studentId",

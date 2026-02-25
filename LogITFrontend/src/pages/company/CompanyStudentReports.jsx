@@ -10,19 +10,19 @@ import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
 import { Download, FileText, RefreshCw } from "lucide-react";
 
-function DeanReports() {
+function CompanyStudentReports() {
   const { api } = useAuth();
-  const [students, setStudents] = useState([]);
+  const [interns, setInterns] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [report, setReport] = useState(null);
-  const [loadingStudents, setLoadingStudents] = useState(false);
+  const [loadingInterns, setLoadingInterns] = useState(false);
   const [loadingReport, setLoadingReport] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [expandedLogId, setExpandedLogId] = useState(null);
 
-  const selectedStudent = useMemo(
-    () => students.find((student) => student._id === selectedStudentId) || null,
-    [students, selectedStudentId],
+  const selectedIntern = useMemo(
+    () => interns.find((student) => student._id === selectedStudentId) || null,
+    [interns, selectedStudentId],
   );
 
   const getProfileImageSrc = (value = "") => {
@@ -33,31 +33,31 @@ function DeanReports() {
   };
 
   useEffect(() => {
-    const fetchStudents = async () => {
+    const fetchInterns = async () => {
       try {
-        setLoadingStudents(true);
-        const response = await api.get("/dean/getAllStudents");
-        setStudents(response.data?.students || []);
+        setLoadingInterns(true);
+        const response = await api.get("/company/assignedInterns");
+        setInterns(response.data || []);
       } catch (error) {
-        toast.error(error.response?.data?.message || "Failed to load students");
+        toast.error(error.response?.data?.message || "Failed to load interns");
       } finally {
-        setLoadingStudents(false);
+        setLoadingInterns(false);
       }
     };
 
-    fetchStudents();
+    fetchInterns();
   }, [api]);
-
+  // fetch report data for selected student and generate report
   const fetchReport = async () => {
     if (!selectedStudentId) {
-      toast.error("Please select a student first");
+      toast.error("Please select an intern first");
       return;
     }
 
     try {
       setLoadingReport(true);
       const response = await api.get(
-        `/dean/reports/student/${selectedStudentId}`,
+        `/company/reports/student/${selectedStudentId}`,
       );
       setReport(response.data?.report || null);
       setExpandedLogId(null);
@@ -68,17 +68,17 @@ function DeanReports() {
       setLoadingReport(false);
     }
   };
-
+  // download report as csv
   const downloadCsv = async () => {
     if (!selectedStudentId) {
-      toast.error("Please select a student first");
+      toast.error("Please select an intern first");
       return;
     }
 
     try {
       setDownloading(true);
       const response = await api.get(
-        `/dean/reports/student/${selectedStudentId}`,
+        `/company/reports/student/${selectedStudentId}`,
         {
           params: { format: "csv" },
           responseType: "blob",
@@ -91,7 +91,7 @@ function DeanReports() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `dean-student-report-${selectedStudentId}.csv`;
+      link.download = `company-student-report-${selectedStudentId}.csv`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -103,17 +103,18 @@ function DeanReports() {
       setDownloading(false);
     }
   };
-
+  
+  // download report as pdf
   const downloadPdf = async () => {
     if (!selectedStudentId) {
-      toast.error("Please select a student first");
+      toast.error("Please select an intern first");
       return;
     }
 
     try {
       setDownloading(true);
       const response = await api.get(
-        `/dean/reports/student/${selectedStudentId}`,
+        `/company/reports/student/${selectedStudentId}`,
         {
           params: { format: "pdf" },
           responseType: "blob",
@@ -124,7 +125,7 @@ function DeanReports() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `dean-student-report-${selectedStudentId}.pdf`;
+      link.download = `company-student-report-${selectedStudentId}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -139,33 +140,32 @@ function DeanReports() {
 
   return (
     <div className="space-y-6 pb-8">
-      <div className="bg-purple-700 rounded-xl p-8 text-white shadow-lg">
-        <h1 className="text-3xl font-bold">Student Reports</h1>
-        <p className="text-purple-100 mt-2">
-          Generate detailed progress reports for any student in the active
-          batch.
+      <div className="bg-emerald-700 rounded-xl p-8 text-white shadow-lg">
+        <h1 className="text-3xl font-bold">Intern Student Reports</h1>
+        <p className="text-emerald-100 mt-2">
+          Generate role-scoped reports for interns assigned to your company.
         </p>
       </div>
 
       <Card elevated>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileText size={20} className="text-purple-600" /> Generate Report
+            <FileText size={20} className="text-emerald-600" /> Generate Report
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Student
+                Select Intern
               </label>
               <select
                 value={selectedStudentId}
                 onChange={(e) => setSelectedStudentId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
-                <option value="">Choose student...</option>
-                {students.map((student) => (
+                <option value="">Choose intern...</option>
+                {interns.map((student) => (
                   <option key={student._id} value={student._id}>
                     {student.name} - {student.student_admission_number} (
                     {student.student_course})
@@ -177,14 +177,14 @@ function DeanReports() {
             <div className="flex gap-2">
               <Button
                 onClick={fetchReport}
-                disabled={loadingReport || loadingStudents}
+                disabled={loadingReport || loadingInterns}
               >
                 {loadingReport ? "Generating..." : "Generate"}
               </Button>
               <Button
                 variant="outline"
                 onClick={downloadCsv}
-                disabled={downloading || loadingStudents}
+                disabled={downloading || loadingInterns}
               >
                 <Download size={16} className="mr-2" />
                 CSV
@@ -192,7 +192,7 @@ function DeanReports() {
               <Button
                 variant="outline"
                 onClick={downloadPdf}
-                disabled={downloading || loadingStudents}
+                disabled={downloading || loadingInterns}
               >
                 <Download size={16} className="mr-2" />
                 PDF
@@ -200,10 +200,10 @@ function DeanReports() {
             </div>
           </div>
 
-          {loadingStudents && (
+          {loadingInterns && (
             <p className="text-sm text-gray-500 flex items-center gap-2">
               <RefreshCw size={14} className="animate-spin" /> Loading
-              students...
+              interns...
             </p>
           )}
         </CardContent>
@@ -214,28 +214,25 @@ function DeanReports() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Student</CardTitle>
+                <CardTitle className="text-lg">Intern</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-gray-700 space-y-1">
                 {getProfileImageSrc(report.student?.profile_image) && (
                   <img
                     src={getProfileImageSrc(report.student?.profile_image)}
-                    alt="Student profile"
+                    alt="Intern profile"
                     className="w-16 h-16 rounded-full object-cover border border-gray-200 mb-2"
                   />
                 )}
                 <p className="font-semibold text-gray-900">
-                  Name: {report.student?.name}
+                  {report.student?.name}
                 </p>
-                <p>Email: {report.student?.email || "N/A"}</p>
+                <p>{report.student?.email || "N/A"}</p>
                 <p>Course: {report.student?.student_course || "N/A"}</p>
                 <p>
                   Admission: {report.student?.student_admission_number || "N/A"}
                 </p>
-                <p>
-                  Company:{" "}
-                  {report.student?.assigned_company_name || "Unassigned"}
-                </p>
+                <p>Batch: {report.student?.student_batch_name || "N/A"}</p>
               </CardContent>
             </Card>
 
@@ -371,7 +368,7 @@ function DeanReports() {
                                     prev === item._id ? null : item._id,
                                   )
                                 }
-                                className="px-2 py-1 rounded border border-purple-200 text-purple-700 hover:bg-purple-50"
+                                className="px-2 py-1 rounded border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                               >
                                 {expandedLogId === item._id
                                   ? "Hide full answers"
@@ -447,11 +444,11 @@ function DeanReports() {
         </>
       )}
 
-      {!report && selectedStudent && !loadingReport && (
+      {!report && selectedIntern && !loadingReport && (
         <Card>
           <CardContent className="p-6 text-sm text-gray-500">
             Click <span className="font-semibold text-gray-700">Generate</span>{" "}
-            to build report for {selectedStudent.name}.
+            to build report for {selectedIntern.name}.
           </CardContent>
         </Card>
       )}
@@ -459,4 +456,4 @@ function DeanReports() {
   );
 }
 
-export default DeanReports;
+export default CompanyStudentReports;

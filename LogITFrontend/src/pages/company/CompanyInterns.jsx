@@ -29,7 +29,7 @@ function CompanyInterns() {
 
   const { api } = useAuth();
 
-  // 1. Fetch Assigned Interns (On Mount)
+  // Fetch Assigned Interns (On Mount)
   useEffect(() => {
     const fetchAssignedInterns = async () => {
       try {
@@ -42,8 +42,7 @@ function CompanyInterns() {
     };
     fetchAssignedInterns();
   }, [api]);
-
-  // 2. Debounce Logic
+  // Debounce Logic
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedQuery(query);
@@ -316,7 +315,6 @@ function CompanyInterns() {
           </Card>
         </div>
       </div>
-
     </div>
   );
 }

@@ -8,7 +8,7 @@ import StudentRegistration from "./pages/students/StudentRegistration.jsx";
 import CompanyDashboard from "./pages/company/CompanyDashboard.jsx";
 import CompanyComplains from "./pages/dean/CompanyComplains.jsx";
 import DashboardHome from "./pages/dean/DashboardHome.jsx";
-import StudentReport from "./pages/dean/StudentReport.jsx";
+
 import CompanyRegistration from "./pages/company/CompanyRegistration.jsx";
 import StudentList from "./pages/dean/StudentList.jsx";
 
@@ -19,12 +19,13 @@ import AlumniBatchDetails from "./pages/dean/AlumniBatchDetails.jsx";
 import StudentLogbook from "./pages/students/StudentLogbook.jsx";
 import StudentTimesheet from "./pages/students/StudentTimesheet.jsx";
 
-import StudentReports from "./pages/students/StudentReports.jsx";
 import StudentHome from "./pages/students/StudentHome.jsx";
 import StudentSettings from "./pages/students/StudentSettings.jsx";
 import CompanyEmployees from "./pages/company/CompanyInterns.jsx";
 
 import CompanyReports from "./pages/company/CompanyReports.jsx";
+import DeanReports from "./pages/dean/DeanReports.jsx";
+import CompanyStudentReports from "./pages/company/CompanyStudentReports.jsx";
 import ComplainToDean from "./pages/company/ComplainToDean.jsx";
 import CompanySettings from "./pages/company/CompanySettings.jsx";
 import CompanyHome from "./pages/company/CompanyHome.jsx";
@@ -106,13 +107,14 @@ function App() {
               element: <DeanSettings />,
             },
             {
+              path: "reports",
+              element: <DeanReports />,
+            },
+            {
               path: "companycomplains",
               element: <CompanyComplains />,
             },
-            {
-              path: "studentreport",
-              element: <StudentReport />,
-            },
+
             {
               path: "studentprofile/:id",
               element: <StudentProfile />,
@@ -148,10 +150,6 @@ function App() {
             },
 
             {
-              path: "reports",
-              element: <StudentReports />,
-            },
-            {
               path: "profile",
               element: <StudentSettings />,
             },
@@ -184,6 +182,10 @@ function App() {
             {
               path: "reports",
               element: <CompanyReports />,
+            },
+            {
+              path: "student-reports",
+              element: <CompanyStudentReports />,
             },
             {
               path: "complaints",

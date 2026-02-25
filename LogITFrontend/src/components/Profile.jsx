@@ -16,7 +16,7 @@ import {
 import toast from "react-hot-toast";
 import Button from "./ui/Button";
 
-export default function StudentProfile({ selfView = false }) {
+export default function StudentProfile({ selfView = false, profilePreview = null }) {
   const { id } = useParams();
   const { api, user } = useAuth();
   const [student, setStudent] = useState(null);
@@ -122,11 +122,19 @@ export default function StudentProfile({ selfView = false }) {
   return (
     <div className="bg-gray-50 min-h-screen pb-8">
       {/* Profile Header */}
-      <div className="bg-linear-to-r from-purple-600 to-indigo-600 px-8 py-8 shadow-lg">
+      <div className="bg-purple-800 px-8 py-8 shadow-lg rounded-xl">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-6">
             <div className="h-24 w-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center ring-4 ring-white/30">
-              <UserCircleIcon className="h-20 w-20 text-white" />
+              {profilePreview ? (
+                <img
+                  src={profilePreview}
+                  alt="Profile"
+                  className="h-full w-full rounded-full object-cover"
+                />
+              ) : (
+                <UserCircleIcon size={48} className="text-white/80" />
+              )}
             </div>
 
             <div className="text-white">

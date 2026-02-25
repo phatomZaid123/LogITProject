@@ -1,122 +1,36 @@
-import Complaint from "../models/complaint.js";
+import asyncHandler from "../middleware/asyncHandler.js";
 import {
-  createNotification,
-  createNotificationsForRole,
-} from "../utils/notificationUtils.js";
+  createComplaintForCompany,
+  listAllComplaints,
+  listCompanyComplaints,
+  replyToComplaintAsDean,
+} from "../services/complaintService.js";
 
-const trimOrEmpty = (value = "") => value.trim();
+export const createComplaint = asyncHandler(async (req, res) => {
+  const complaint = await createComplaintForCompany({
+    companyUser: req.user,
+    payload: req.body,
+  });
 
-export const createComplaint = async (req, res) => {
-  const { subject, category = "General", details } = req.body;
+  return res.status(201).json({ complaint });
+});
 
-  if (!subject || !trimOrEmpty(subject)) {
-    return res.status(400).json({ message: "Subject is required" });
-  }
+export const getCompanyComplaints = asyncHandler(async (req, res) => {
+  const complaints = await listCompanyComplaints(req.user._id);
+  return res.status(200).json({ complaints });
+});
 
-  if (!details || !trimOrEmpty(details)) {
-    return res.status(400).json({ message: "Details are required" });
-  }
+export const getAllComplaints = asyncHandler(async (_req, res) => {
+  const complaints = await listAllComplaints();
+  return res.status(200).json({ complaints });
+});
 
-  try {
-    const companyUser = req.user;
+export const replyToComplaint = asyncHandler(async (req, res) => {
+  const complaint = await replyToComplaintAsDean({
+    complaintId: req.params.complaintId,
+    body: req.body?.body,
+    deanName: req.user?.name,
+  });
 
-    const complaint = await Complaint.create({
-      subject: trimOrEmpty(subject),
-      category: trimOrEmpty(category) || "General",
-      details: trimOrEmpty(details),
-      company: companyUser._id,
-      companyName: companyUser.company_name || companyUser.name,
-      companyContactName: companyUser.name,
-      companyEmail: companyUser.email,
-      messages: [
-        {
-          authorRole: "company",
-          authorName: companyUser.name || companyUser.company_name,
-          body: trimOrEmpty(details),
-        },
-      ],
-    });
-
-    await createNotificationsForRole("dean", {
-      type: "complaint_submitted",
-      title: "New company complaint",
-      message: `${companyUser.company_name || companyUser.name} submitted a complaint: ${complaint.subject}`,
-      link: "/dean/dashboard/complaints",
-      data: {
-        complaintId: complaint._id,
-        companyId: companyUser._id,
-      },
-    });
-
-    return res.status(201).json({ complaint });
-  } catch (error) {
-    console.error("Create complaint error", error);
-    return res.status(500).json({ message: "Failed to create complaint" });
-  }
-};
-
-export const getCompanyComplaints = async (req, res) => {
-  try {
-    const complaints = await Complaint.find({ company: req.user._id })
-      .sort({ createdAt: -1 })
-      .lean();
-    return res.json({ complaints });
-  } catch (error) {
-    console.error("Fetch company complaints error", error);
-    return res
-      .status(500)
-      .json({ message: "Failed to fetch company complaints" });
-  }
-};
-
-export const getAllComplaints = async (_req, res) => {
-  try {
-    const complaints = await Complaint.find().sort({ createdAt: -1 }).lean();
-    return res.json({ complaints });
-  } catch (error) {
-    console.error("Fetch complaints error", error);
-    return res.status(500).json({ message: "Failed to fetch complaints" });
-  }
-};
-
-export const replyToComplaint = async (req, res) => {
-  const { complaintId } = req.params;
-  const { body } = req.body;
-
-  if (!body || !trimOrEmpty(body)) {
-    return res.status(400).json({ message: "Reply body is required" });
-  }
-
-  try {
-    const complaint = await Complaint.findById(complaintId);
-
-    if (!complaint) {
-      return res.status(404).json({ message: "Complaint not found" });
-    }
-
-    complaint.messages.push({
-      authorRole: "dean",
-      authorName: req.user?.name || "Dean",
-      body: trimOrEmpty(body),
-    });
-    complaint.status = "responded";
-    await complaint.save();
-
-    await createNotification({
-      recipient: complaint.company,
-      recipientRole: "company",
-      type: "complaint_replied",
-      title: "Dean replied to your complaint",
-      message: `Dean replied to complaint: ${complaint.subject}`,
-      link: "/company/dashboard/complaints",
-      data: {
-        complaintId: complaint._id,
-      },
-    });
-
-    return res.json({ complaint });
-  } catch (error) {
-    console.error("Reply complaint error", error);
-    return res.status(500).json({ message: "Failed to add reply" });
-  }
-};
+  return res.status(200).json({ complaint });
+});

@@ -63,6 +63,11 @@ function SideBar({ children }) {
         path: "/dean/dashboard/complaints",
         icon: AlertCircle,
       },
+      {
+        label: "Reports",
+        path: "/dean/dashboard/reports",
+        icon: BarChart3,
+      },
       { label: "Settings", path: "/dean/dashboard/settings", icon: Settings },
     ],
 
@@ -74,6 +79,11 @@ function SideBar({ children }) {
         label: "Intern Reports",
         path: "/company/dashboard/reports",
         icon: BarChart3,
+      },
+      {
+        label: "Student Reports",
+        path: "/company/dashboard/student-reports",
+        icon: FileText,
       },
       {
         label: "Complaints",
