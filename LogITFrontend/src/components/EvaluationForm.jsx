@@ -17,13 +17,7 @@ const initialRatings = {
   professionalism: 3,
 };
 
-function EvaluationForm({
-  studentId,
-  api,
-  evaluation,
-  progress,
-  onSubmitted,
-}) {
+function EvaluationForm({ studentId, api, evaluation, progress, onSubmitted }) {
   const [ratings, setRatings] = useState(initialRatings);
   const [strengths, setStrengths] = useState("");
   const [areasForImprovement, setAreasForImprovement] = useState("");
@@ -60,27 +54,35 @@ function EvaluationForm({
 
     try {
       setSubmitting(true);
-      const response = await api.put(`/company/student/${studentId}/evaluation`, {
-        ratings,
-        strengths,
-        areasForImprovement,
-        additionalComments,
-        recommendation,
-      });
+      const response = await api.put(
+        `/company/student/${studentId}/evaluation`,
+        {
+          ratings,
+          strengths,
+          areasForImprovement,
+          additionalComments,
+          recommendation,
+        },
+      );
 
       const saved = response?.data?.data;
       toast.success(
-        evaluation ? "Evaluation updated successfully" : "Evaluation submitted successfully",
+        evaluation
+          ? "Evaluation updated successfully"
+          : "Evaluation submitted successfully",
       );
       onSubmitted?.(saved);
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to submit evaluation");
+      toast.error(
+        error.response?.data?.message || "Failed to submit evaluation",
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
-  const hasRequiredHours = Number(progress?.completed || 0) >= Number(progress?.required || 0);
+  const hasRequiredHours =
+    Number(progress?.completed || 0) >= Number(progress?.required || 0);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -137,7 +139,9 @@ function EvaluationForm({
         </label>
 
         <label className="text-sm text-gray-700 block">
-          <span className="block mb-1 font-semibold">Areas for Improvement</span>
+          <span className="block mb-1 font-semibold">
+            Areas for Improvement
+          </span>
           <textarea
             className="w-full border border-gray-300 rounded-md px-3 py-2 min-h-24"
             value={areasForImprovement}
@@ -154,7 +158,9 @@ function EvaluationForm({
             onChange={(event) => setRecommendation(event.target.value)}
           >
             <option value="recommend">Recommend</option>
-            <option value="recommend_with_reservation">Recommend with reservation</option>
+            <option value="recommend_with_reservation">
+              Recommend with reservation
+            </option>
             <option value="do_not_recommend">Do not recommend</option>
           </select>
         </label>
@@ -175,7 +181,11 @@ function EvaluationForm({
             disabled={submitting || !hasRequiredHours}
             className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-indigo-700 disabled:opacity-50"
           >
-            {submitting ? "Submitting..." : evaluation ? "Update Evaluation" : "Submit Evaluation"}
+            {submitting
+              ? "Submitting..."
+              : evaluation
+                ? "Update Evaluation"
+                : "Submit Evaluation"}
           </button>
         </div>
       </form>

@@ -607,7 +607,9 @@ const submitStudentEvaluation = async (req, res) => {
       (sum, value) => sum + value,
       0,
     );
-    const overallScore = Number((total / requiredRatingFields.length).toFixed(2));
+    const overallScore = Number(
+      (total / requiredRatingFields.length).toFixed(2),
+    );
 
     const evaluation = await Evaluation.findOneAndUpdate(
       {

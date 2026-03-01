@@ -16,7 +16,10 @@ import {
 import toast from "react-hot-toast";
 import Button from "./ui/Button";
 
-export default function StudentProfile({ selfView = false, profilePreview = null }) {
+export default function StudentProfile({
+  selfView = false,
+  profilePreview = null,
+}) {
   const { id } = useParams();
   const { api, user } = useAuth();
   const [student, setStudent] = useState(null);
@@ -41,7 +44,7 @@ export default function StudentProfile({ selfView = false, profilePreview = null
         setLoading(false);
       }
     };
- 
+
     if ((selfView || id) && api) {
       fetchStudentData();
     }
@@ -256,7 +259,9 @@ export default function StudentProfile({ selfView = false, profilePreview = null
       <div className="px-8 mb-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between gap-3 mb-4">
-            <h2 className="text-lg font-bold text-gray-800">Company Evaluation</h2>
+            <h2 className="text-lg font-bold text-gray-800">
+              Company Evaluation
+            </h2>
             {evaluation ? (
               <span className="text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-700 font-semibold">
                 Submitted

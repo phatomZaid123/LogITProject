@@ -295,7 +295,9 @@ export const getMyProfileDetailsForStudent = async (studentId) => {
   const [logs, timesheets, evaluation] = await Promise.all([
     LOGBOOK.find({ created_by: studentId }).sort({ createdAt: -1 }),
     TIMESHEET.find({ student: studentId }).sort({ date: -1 }),
-    Evaluation.findOne({ student: studentId }).populate("company", "name").lean(),
+    Evaluation.findOne({ student: studentId })
+      .populate("company", "name")
+      .lean(),
   ]);
 
   const approvedHours = timesheets

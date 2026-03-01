@@ -62,7 +62,9 @@ const DeanChatbot = ({ isOpen, onClose }) => {
       const resolvedText = response.data?.summary || "No summary available.";
       setMessages((prev) =>
         prev.map((message) =>
-          message.id === assistantId ? { ...message, text: resolvedText } : message,
+          message.id === assistantId
+            ? { ...message, text: resolvedText }
+            : message,
         ),
       );
     } catch (error) {
@@ -172,7 +174,12 @@ const DeanChatbot = ({ isOpen, onClose }) => {
             className="flex-1 min-h-12 max-h-32 resize-none border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
             disabled={sending}
           />
-          <Button variant="primary" size="md" onClick={handleSend} disabled={sending}>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleSend}
+            disabled={sending}
+          >
             <span className="flex items-center gap-2">
               {sending ? "Sending..." : "Send"}
               <SendHorizontal size={16} />
