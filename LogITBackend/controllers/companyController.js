@@ -2,8 +2,12 @@ import Student from "../models/student.js";
 import { TIMESHEET } from "../models/timesheet.js";
 import { TASK } from "../models/task.js";
 import { LOGBOOK } from "../models/logbook.js";
+import Evaluation from "../models/evaluation.js";
 import mongoose from "mongoose";
-import { createNotification } from "../utils/notificationUtils.js";
+import {
+  createNotification,
+  createNotificationsForRole,
+} from "../utils/notificationUtils.js";
 
 const buildApprovedHoursMap = async (studentIds = []) => {
   if (!studentIds.length) return {};
@@ -47,6 +51,25 @@ const attachStudentHourStats = async (students = []) => {
       ojt_hours_remaining: Math.max(0, required - completed),
     };
   });
+};
+
+const getApprovedHoursForStudent = async (studentId) => {
+  const stats = await TIMESHEET.aggregate([
+    {
+      $match: {
+        student: new mongoose.Types.ObjectId(studentId),
+        status: "company_approved",
+      },
+    },
+    {
+      $group: {
+        _id: "$student",
+        totalHours: { $sum: "$totalHours" },
+      },
+    },
+  ]);
+
+  return stats.length > 0 ? Number(stats[0].totalHours || 0) : 0;
 };
 
 const assignedInterns = async (req, res) => {
@@ -468,9 +491,12 @@ const getAssignedStudentProfile = async (req, res) => {
         .json({ message: "This student is not assigned to your company" });
     }
 
-    const [logs, timesheets] = await Promise.all([
+    const [logs, timesheets, evaluation] = await Promise.all([
       LOGBOOK.find({ created_by: studentId }).sort({ createdAt: -1 }),
       TIMESHEET.find({ student: studentId }).sort({ date: -1 }),
+      Evaluation.findOne({ student: studentId, company: companyId })
+        .populate("company", "name")
+        .lean(),
     ]);
 
     const approvedHours = timesheets
@@ -483,6 +509,7 @@ const getAssignedStudentProfile = async (req, res) => {
       ...student.toObject(),
       logs,
       timesheets,
+      evaluation,
       ojt_hours_completed: approvedHours,
       ojt_hours_remaining: Math.max(0, requiredHours - approvedHours),
     };
@@ -491,6 +518,159 @@ const getAssignedStudentProfile = async (req, res) => {
   } catch (error) {
     console.error("Get Assigned Student Profile Error:", error);
     res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
+const submitStudentEvaluation = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const companyId = req.user?._id;
+
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ message: "Invalid student ID format" });
+    }
+
+    if (!companyId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const student = await Student.findById(studentId).select(
+      "name assigned_company ojt_hours_required",
+    );
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    if (student.assigned_company?.toString() !== companyId.toString()) {
+      return res
+        .status(403)
+        .json({ message: "This student is not assigned to your company" });
+    }
+
+    const approvedHours = await getApprovedHoursForStudent(studentId);
+    const requiredHours = Number(student.ojt_hours_required || 500);
+
+    if (approvedHours < requiredHours) {
+      return res.status(400).json({
+        message:
+          "Student has not completed the required OJT hours for evaluation",
+        approvedHours,
+        requiredHours,
+        remainingHours: Math.max(0, requiredHours - approvedHours),
+      });
+    }
+
+    const {
+      ratings,
+      strengths,
+      areasForImprovement,
+      additionalComments,
+      recommendation,
+    } = req.body || {};
+
+    const allowedRecommendations = [
+      "recommend",
+      "recommend_with_reservation",
+      "do_not_recommend",
+    ];
+
+    const requiredRatingFields = [
+      "attendance",
+      "cooperation",
+      "communication",
+      "technicalSkills",
+      "professionalism",
+    ];
+
+    if (!ratings || typeof ratings !== "object") {
+      return res.status(400).json({ message: "Ratings are required" });
+    }
+
+    const normalizedRatings = {};
+
+    for (const field of requiredRatingFields) {
+      const value = Number(ratings[field]);
+      if (!Number.isFinite(value) || value < 1 || value > 5) {
+        return res.status(400).json({
+          message: `Rating '${field}' must be a number between 1 and 5`,
+        });
+      }
+      normalizedRatings[field] = value;
+    }
+
+    if (!allowedRecommendations.includes(recommendation)) {
+      return res.status(400).json({ message: "Invalid recommendation value" });
+    }
+
+    const total = Object.values(normalizedRatings).reduce(
+      (sum, value) => sum + value,
+      0,
+    );
+    const overallScore = Number((total / requiredRatingFields.length).toFixed(2));
+
+    const evaluation = await Evaluation.findOneAndUpdate(
+      {
+        student: studentId,
+        company: companyId,
+      },
+      {
+        ratings: normalizedRatings,
+        overallScore,
+        strengths: strengths || "",
+        areasForImprovement: areasForImprovement || "",
+        additionalComments: additionalComments || "",
+        recommendation,
+        approvedHours,
+        requiredHours,
+        eligibleByHours: approvedHours >= requiredHours,
+        submittedAt: new Date(),
+      },
+      {
+        new: true,
+        upsert: true,
+        runValidators: true,
+        setDefaultsOnInsert: true,
+      },
+    )
+      .populate("company", "name")
+      .populate("student", "name");
+
+    await createNotification({
+      recipient: studentId,
+      recipientRole: "student",
+      type: "student_evaluated",
+      title: "Internship evaluation submitted",
+      message: "Your company submitted your internship evaluation.",
+      link: "/student/dashboard/profile",
+      data: {
+        studentId,
+        evaluationId: evaluation._id,
+      },
+    });
+
+    await createNotificationsForRole("dean", {
+      type: "student_evaluated",
+      title: "New internship evaluation",
+      message: `${student.name} has a new company evaluation ready for review.`,
+      link: `/dean/dashboard/students/${studentId}`,
+      data: {
+        studentId,
+        evaluationId: evaluation._id,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Evaluation submitted successfully",
+      data: evaluation,
+    });
+  } catch (error) {
+    console.error("Submit Student Evaluation Error:", error);
+    res.status(500).json({
+      message: "Failed to submit evaluation",
+      error: error.message,
+    });
   }
 };
 
@@ -636,6 +816,7 @@ export {
   getStudentLogsForCompany,
   companyReviewLogbook,
   getAssignedStudentProfile,
+  submitStudentEvaluation,
   createTask,
   getCompanyTasks,
   updateTaskStatus,

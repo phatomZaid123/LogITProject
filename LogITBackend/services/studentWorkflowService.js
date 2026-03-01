@@ -3,6 +3,7 @@ import { LOGBOOK } from "../models/logbook.js";
 import { TIMESHEET } from "../models/timesheet.js";
 import { TASK } from "../models/task.js";
 import Student from "../models/student.js";
+import Evaluation from "../models/evaluation.js";
 import { createNotification } from "../utils/notificationUtils.js";
 import { httpError } from "../utils/httpError.js";
 
@@ -291,9 +292,10 @@ export const getMyProfileDetailsForStudent = async (studentId) => {
     throw httpError(404, "Student not found");
   }
 
-  const [logs, timesheets] = await Promise.all([
+  const [logs, timesheets, evaluation] = await Promise.all([
     LOGBOOK.find({ created_by: studentId }).sort({ createdAt: -1 }),
     TIMESHEET.find({ student: studentId }).sort({ date: -1 }),
+    Evaluation.findOne({ student: studentId }).populate("company", "name").lean(),
   ]);
 
   const approvedHours = timesheets
@@ -306,6 +308,7 @@ export const getMyProfileDetailsForStudent = async (studentId) => {
     ...student.toObject(),
     logs,
     timesheets,
+    evaluation,
     ojt_hours_completed: approvedHours,
     ojt_hours_remaining: Math.max(0, requiredHours - approvedHours),
   };

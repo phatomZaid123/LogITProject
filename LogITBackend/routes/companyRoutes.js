@@ -11,6 +11,7 @@ import {
   getStudentTimesheets,
   getStudentLogsForCompany,
   companyReviewLogbook,
+  submitStudentEvaluation,
   createTask,
   getCompanyTasks,
   updateTaskStatus,
@@ -54,6 +55,12 @@ router.get(
   protect,
   authorize("company"),
   getAssignedStudentProfile,
+);
+router.put(
+  "/student/:studentId/evaluation",
+  protect,
+  authorize("company"),
+  submitStudentEvaluation,
 );
 router.get(
   "/reports/student/:studentId",

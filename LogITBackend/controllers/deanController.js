@@ -6,6 +6,7 @@ import crypto from "crypto";
 import Company from "../models/company.js";
 import { LOGBOOK } from "../models/logbook.js";
 import { TIMESHEET } from "../models/timesheet.js";
+import Evaluation from "../models/evaluation.js";
 import { createNotification } from "../utils/notificationUtils.js";
 
 const enrichCompaniesWithAssignments = async (companies = []) => {
@@ -592,6 +593,10 @@ const getStudentById = async (req, res) => {
       date: -1,
     });
 
+    const evaluation = await Evaluation.findOne({ student: studentId })
+      .populate("company", "name")
+      .lean();
+
     const approvedHours = timesheets
       .filter((entry) => entry.status === "company_approved")
       .reduce((sum, entry) => sum + (entry.totalHours || 0), 0);
@@ -603,6 +608,7 @@ const getStudentById = async (req, res) => {
       ...student.toObject(),
       logs,
       timesheets,
+      evaluation,
       ojt_hours_completed: approvedHours,
       ojt_hours_remaining: Math.max(0, requiredHours - approvedHours),
     };

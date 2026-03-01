@@ -25,6 +25,7 @@ import {
   markStudentCompleted,
 } from "../controllers/deanController.js";
 import { getDeanStudentReport } from "../controllers/studentReportController.js";
+import { askDeanAssistant } from "../controllers/deanChatbotController.js";
 import express from "express";
 
 const router = express.Router();
@@ -115,6 +116,7 @@ router.get(
   authorize("dean"),
   getPendingTimesheets,
 );
+router.post("/chatbot/ask", protect, authorize("dean"), askDeanAssistant);
 router.put(
   "/timesheets/:id/review",
   protect,

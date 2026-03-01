@@ -37,10 +37,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import StudentProfile from "./components/Profile.jsx";
 import CompanyProfile from "./pages/dean/CompanyProfile.jsx";
 
+
 function App() {
   const queryClient = new QueryClient();
   const routes = createBrowserRouter([
     //Public Routes - All use unified login
+
+   
     {
       path: "/",
       element: <UnifiedLogin />,

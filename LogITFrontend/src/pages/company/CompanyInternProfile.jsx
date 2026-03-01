@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
 import Button from "../../components/ui/Button";
+import EvaluationForm from "../../components/EvaluationForm";
 import {
   Card,
   CardContent,
@@ -434,6 +435,15 @@ function CompanyInternProfile() {
           )}
         </CardContent>
       </Card>
+      <EvaluationForm
+        studentId={studentId}
+        api={api}
+        evaluation={student.evaluation || null}
+        progress={progress}
+        onSubmitted={(saved) =>
+          setStudent((prev) => (prev ? { ...prev, evaluation: saved } : prev))
+        }
+      />
     </div>
   );
 }

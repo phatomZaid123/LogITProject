@@ -118,6 +118,7 @@ export default function StudentProfile({ selfView = false, profilePreview = null
 
   const totalTimesheets = student?.timesheets?.length || 0;
   const totalApprovedHours = ojtHoursCompleted;
+  const evaluation = student?.evaluation || null;
 
   return (
     <div className="bg-gray-50 min-h-screen pb-8">
@@ -252,6 +253,84 @@ export default function StudentProfile({ selfView = false, profilePreview = null
           </div>
         </InfoCard>
       </div>
+      <div className="px-8 mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h2 className="text-lg font-bold text-gray-800">Company Evaluation</h2>
+            {evaluation ? (
+              <span className="text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-700 font-semibold">
+                Submitted
+              </span>
+            ) : (
+              <span className="text-xs px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 font-semibold">
+                Not submitted
+              </span>
+            )}
+          </div>
+
+          {!evaluation ? (
+            <p className="text-sm text-gray-500">
+              No company evaluation has been submitted yet.
+            </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                <EvaluationItem
+                  label="Attendance"
+                  value={`${Number(evaluation.ratings?.attendance || 0).toFixed(1)} / 5`}
+                />
+                <EvaluationItem
+                  label="Cooperation"
+                  value={`${Number(evaluation.ratings?.cooperation || 0).toFixed(1)} / 5`}
+                />
+                <EvaluationItem
+                  label="Communication"
+                  value={`${Number(evaluation.ratings?.communication || 0).toFixed(1)} / 5`}
+                />
+                <EvaluationItem
+                  label="Technical Skills"
+                  value={`${Number(evaluation.ratings?.technicalSkills || 0).toFixed(1)} / 5`}
+                />
+                <EvaluationItem
+                  label="Professionalism"
+                  value={`${Number(evaluation.ratings?.professionalism || 0).toFixed(1)} / 5`}
+                />
+                <EvaluationItem
+                  label="Overall"
+                  value={`${Number(evaluation.overallScore || 0).toFixed(2)} / 5`}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <TextBlock label="Strengths" value={evaluation.strengths} />
+                <TextBlock
+                  label="Areas for Improvement"
+                  value={evaluation.areasForImprovement}
+                />
+                <TextBlock
+                  label="Additional Comments"
+                  value={evaluation.additionalComments}
+                />
+                <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
+                  <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">
+                    Recommendation
+                  </p>
+                  <p className="text-sm font-semibold text-gray-800 mt-1">
+                    {(evaluation.recommendation || "-").replaceAll("_", " ")}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-3">
+                    By {evaluation.company?.name || "Company"} on{" "}
+                    {evaluation.submittedAt
+                      ? new Date(evaluation.submittedAt).toLocaleDateString()
+                      : "-"}
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* REPORT SECTION */}
       <div className="px-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -556,6 +635,30 @@ export default function StudentProfile({ selfView = false, profilePreview = null
         {config.icon}
         {displayStatus}
       </span>
+    );
+  }
+
+  function EvaluationItem({ label, value }) {
+    return (
+      <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
+        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">
+          {label}
+        </p>
+        <p className="text-sm font-bold text-gray-800 mt-1">{value}</p>
+      </div>
+    );
+  }
+
+  function TextBlock({ label, value }) {
+    return (
+      <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
+        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">
+          {label}
+        </p>
+        <p className="text-sm text-gray-800 mt-1 whitespace-pre-wrap">
+          {value?.trim() ? value : "-"}
+        </p>
+      </div>
     );
   }
 

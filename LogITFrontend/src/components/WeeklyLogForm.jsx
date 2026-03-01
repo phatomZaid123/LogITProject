@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Send, FilePlus, X, BookOpen } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/Card";
+
 import Button from "./ui/Button";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
