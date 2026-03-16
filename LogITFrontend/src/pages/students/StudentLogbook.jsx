@@ -71,14 +71,11 @@ function StudentLogbook() {
     });
   };
 
-  const exportToPDF = () => {
-    toast.info("PDF export feature coming soon!");
-    // TODO: Implement PDF export functionality
-  };
+  
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-6">
-      {/* 1. MODAL COMPONENT */}
+      {/*  MODAL COMPONENT */}
       <WeeklyLogModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -102,17 +99,11 @@ function StudentLogbook() {
           >
             <Plus size={18} className="mr-2" /> New Weekly Log
           </Button>
-          <Button
-            variant="outline"
-            className="border-gray-300"
-            onClick={exportToPDF}
-          >
-            <Download size={18} className="mr-2" /> Export PDF
-          </Button>
+      
         </div>
       </div>
 
-      {/* 2. STATS SECTION */}
+      {/* STATS SECTION */}
       <Card
         elevated
         className="bg-linear-to-r from-purple-50 to-white border-none shadow-sm"

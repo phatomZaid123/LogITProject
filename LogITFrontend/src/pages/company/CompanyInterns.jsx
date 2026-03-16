@@ -139,7 +139,7 @@ function CompanyInterns() {
                   />
                   <input
                     type="text"
-                    placeholder="Search by student name..."
+                    placeholder="Search by student ID..."
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}

@@ -9,6 +9,9 @@ import {
   createNotificationsForRole,
 } from "../utils/notificationUtils.js";
 
+const escapeRegex = (value = "") =>
+  String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 const buildApprovedHoursMap = async (studentIds = []) => {
   if (!studentIds.length) return {};
 
@@ -94,21 +97,27 @@ const assignedInterns = async (req, res) => {
 const searchStudents = async (req, res) => {
   const { studentid } = req.query;
 
-  console.log("Searching for students with name:", studentid);
   try {
-    if (!studentid || studentid.trim() === "") {
+    const trimmedQuery = String(studentid || "").trim();
+    if (!trimmedQuery) {
       return res.status(400).json({ message: "Student ID is required" });
     }
     // Use regex for partial, case-insensitive matching
     // Filter out students who already have an assigned company
+    const safeQuery = escapeRegex(trimmedQuery);
     const students = await Student.find({
-      student_admission_number: { $regex: new RegExp(studentid, "i") },
+      $expr: {
+        $regexMatch: {
+          input: { $toString: "$student_admission_number" },
+          regex: safeQuery,
+        },
+      },
       $or: [
         { assigned_company: { $exists: false } },
         { assigned_company: null },
       ],
     }).limit(10); // Limit results for better performance
-
+  
     res.status(200).json(students);
   } catch (err) {
     res.status(500).json({ error: "Search failed, Student is not registered" });

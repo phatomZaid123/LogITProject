@@ -158,7 +158,7 @@ const StudentRegistration = () => {
             <Hash className="absolute left-3 top-3 text-gray-400" size={18} />
             <input
               type="text"
-              placeholder="Admission Number (e.g. 2021-001)"
+              placeholder="Student ID (e.g. 2021-001)"
               value={formData.admission_number}
               className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
               onChange={(e) =>
