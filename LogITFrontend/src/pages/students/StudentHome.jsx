@@ -10,6 +10,7 @@ import {
 import { Clock, CheckCircle2, FileText, AlertCircle } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
+import InternshipTimeline from "../../components/InternshipTimeline";
 
 function StudentHome() {
   const { api } = useAuth();
@@ -140,6 +141,11 @@ function StudentHome() {
   }, [dashboard]);
 
   const companyInfo = dashboard?.companyInfo || null;
+  const internshipStatus =
+    dashboard?.internship?.status ||
+    dashboard?.internshipStatus ||
+    dashboard?.status ||
+    "enrolled";
 
   return (
     <div className="space-y-6">
@@ -150,6 +156,16 @@ function StudentHome() {
           You're doing great! Keep up with your OJT progress.
         </p>
       </div>
+
+      <Card elevated>
+        <CardHeader withBorder>
+          <CardTitle>Internship Progress</CardTitle>
+          <CardDescription>Track your OJT journey in real time</CardDescription>
+        </CardHeader>
+        <CardContent padding="lg">
+          <InternshipTimeline currentStatus={internshipStatus} />
+        </CardContent>
+      </Card>
 
       {/* Statistics Grid */}
       {loading ? (

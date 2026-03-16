@@ -57,7 +57,7 @@ function CompanyInterns() {
         setIsSearching(true);
         try {
           const res = await api.get(
-            `/company/searchStudents?name=${debouncedQuery}`,
+            `/company/searchStudents?studentid=${debouncedQuery}`,
           );
           setSearchResults(res.data);
         } catch (err) {

@@ -36,6 +36,18 @@ const studentSchema = new mongoose.Schema({
     ref: "company",
     default: null,
   },
+
+  documents: [
+    {
+      fileUrl: String,
+      fileType: String,
+      originalName: String,
+      uploadedAt: {
+        type: Date,
+        default: Date.now,
+      },
+    },
+  ],
 });
 
 const Student = User.discriminator("student", studentSchema);

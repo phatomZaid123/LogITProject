@@ -316,6 +316,39 @@ export const getMyProfileDetailsForStudent = async (studentId) => {
   };
 };
 
+export const uploadStudentDocumentsForStudent = async ({
+  studentId,
+  files,
+}) => {
+  if (!files?.length) {
+    throw httpError(400, "No documents uploaded");
+  }
+
+  const student = await Student.findById(studentId).select(
+    "assigned_company documents",
+  );
+
+  if (!student) {
+    throw httpError(404, "Student not found");
+  }
+
+  if (!student.assigned_company) {
+    throw httpError(400, "No company assigned yet.");
+  }
+
+  const documents = files.map((file) => ({
+    fileUrl: `/uploads/${file.filename}`,
+    fileType: file.mimetype,
+    originalName: file.originalname,
+    uploadedAt: new Date(),
+  }));
+
+  student.documents = [...(student.documents || []), ...documents];
+  await student.save();
+
+  return student.documents || [];
+};
+
 export const getStudentTimesheetsForStudent = async (studentId) => {
   if (!studentId || studentId === "undefined") {
     throw httpError(400, "Student ID is required");
@@ -576,7 +609,7 @@ export const updateStudentTaskStatus = async ({
 
 export const getStudentDashboardStatsForStudent = async (studentId) => {
   const student = await Student.findById(studentId)
-    .select("ojt_hours_required assigned_company")
+    .select("ojt_hours_required assigned_company completed_program documents")
     .populate(
       "assigned_company",
       "name contact_person job_title company_address isSuspended",
@@ -681,6 +714,12 @@ export const getStudentDashboardStatsForStudent = async (studentId) => {
       }
     : null;
 
+  let internshipStatus = "enrolled";
+
+  if (student.assigned_company) internshipStatus = "company_assigned";
+  if (student.documents?.length) internshipStatus = "documents_uploaded";
+  if (student.completed_program) internshipStatus = "internship_completed";
+
   return {
     stats: {
       hours: {
@@ -715,5 +754,6 @@ export const getStudentDashboardStatsForStudent = async (studentId) => {
       priority: getPriority(task.dueDate),
     })),
     companyInfo,
+    internshipStatus,
   };
 };

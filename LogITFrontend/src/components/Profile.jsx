@@ -26,6 +26,7 @@ export default function StudentProfile({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("logs");
+  const [uploadingDocuments, setUploadingDocuments] = useState(false);
   useEffect(() => {
     const fetchStudentData = async () => {
       try {
@@ -64,6 +65,35 @@ export default function StudentProfile({
       const errorMsg =
         err.response?.data?.message || "Failed to mark student as completed";
       toast.error(errorMsg);
+    }
+  };
+
+  const handleDocumentUpload = async (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+
+    const formData = new FormData();
+    files.forEach((file) => formData.append("documents", file));
+
+    try {
+      setUploadingDocuments(true);
+      const response = await api.post("/student/documents", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      const updatedDocuments = response.data?.documents || [];
+      setStudent((prev) =>
+        prev ? { ...prev, documents: updatedDocuments } : prev,
+      );
+      toast.success("Documents uploaded successfully");
+    } catch (err) {
+      console.error("Error uploading documents:", err);
+      const errorMsg =
+        err.response?.data?.message || "Failed to upload documents";
+      toast.error(errorMsg);
+    } finally {
+      setUploadingDocuments(false);
+      event.target.value = "";
     }
   };
 
@@ -122,6 +152,11 @@ export default function StudentProfile({
   const totalTimesheets = student?.timesheets?.length || 0;
   const totalApprovedHours = ojtHoursCompleted;
   const evaluation = student?.evaluation || null;
+  const documents = student?.documents || [];
+  const baseFileUrl =
+    api?.defaults?.baseURL?.replace(/\/api\/?$/, "") || "";
+  const resolveFileUrl = (value) =>
+    value ? (value.startsWith("http") ? value : `${baseFileUrl}${value}`) : "#";
 
   return (
     <div className="bg-gray-50 min-h-screen pb-8">
@@ -256,6 +291,73 @@ export default function StudentProfile({
           </div>
         </InfoCard>
       </div>
+
+      <div className="px-8 mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-lg font-bold text-gray-800">
+                Required Documents
+              </h2>
+              <p className="text-sm text-gray-500">
+                Upload your internship requirements and attachments.
+              </p>
+            </div>
+            {selfView && (
+              <label className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-purple-700 focus-within:ring-2 focus-within:ring-purple-400 focus-within:ring-offset-2">
+                <input
+                  type="file"
+                  multiple
+                  className="sr-only"
+                  onChange={handleDocumentUpload}
+                  disabled={uploadingDocuments}
+                />
+                {uploadingDocuments ? "Uploading..." : "Upload Documents"}
+              </label>
+            )}
+          </div>
+
+          {documents.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-200 p-6 text-sm text-gray-500">
+              No documents uploaded yet.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {documents.map((doc, index) => (
+                <div
+                  key={`${doc.fileUrl}-${index}`}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-4 py-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-purple-100 p-2 text-purple-600">
+                      <FileText size={18} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">
+                        {doc.originalName || "Document"}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {doc.uploadedAt
+                          ? new Date(doc.uploadedAt).toLocaleDateString()
+                          : "Upload date unavailable"}
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    href={resolveFileUrl(doc.fileUrl)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm font-semibold text-purple-600 hover:text-purple-800"
+                  >
+                    View
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="px-8 mb-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between gap-3 mb-4">

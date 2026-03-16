@@ -17,6 +17,7 @@ import {
   getStudentTasks,
   updateMyTaskStatus,
   getStudentDashboardStats,
+  uploadStudentDocuments,
 } from "../controllers/studentController.js";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 import { upload } from "../middleware/uploads.js";
@@ -33,6 +34,13 @@ router.post(
 router.get("/logs", protect, authorize("student"), getStudentLogs);
 router.get("/logs/stats", protect, authorize("student"), getLogStats);
 router.get("/profile", protect, authorize("student"), getMyProfileDetails);
+router.post(
+  "/documents",
+  protect,
+  authorize("student"),
+  upload.array("documents", 5),
+  uploadStudentDocuments,
+);
 router.put(
   "/logs/:id/submit",
   protect,

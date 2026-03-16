@@ -92,17 +92,17 @@ const assignedInterns = async (req, res) => {
 
 // Search students by name
 const searchStudents = async (req, res) => {
-  const { name } = req.query;
+  const { studentid } = req.query;
 
-  console.log("Searching for students with name:", name);
+  console.log("Searching for students with name:", studentid);
   try {
-    if (!name)
-      return res.status(400).json({ message: "Search term is required" });
-
+    if (!studentid || studentid.trim() === "") {
+      return res.status(400).json({ message: "Student ID is required" });
+    }
     // Use regex for partial, case-insensitive matching
     // Filter out students who already have an assigned company
     const students = await Student.find({
-      name: { $regex: new RegExp(name, "i") },
+      student_admission_number: { $regex: new RegExp(studentid, "i") },
       $or: [
         { assigned_company: { $exists: false } },
         { assigned_company: null },
@@ -111,7 +111,7 @@ const searchStudents = async (req, res) => {
 
     res.status(200).json(students);
   } catch (err) {
-    res.status(500).json({ error: "Search failed", details: err.message });
+    res.status(500).json({ error: "Search failed, Student is not registered" });
   }
 };
 

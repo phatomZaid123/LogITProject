@@ -15,6 +15,7 @@ import {
   submitWeeklyTimesheetForStudent,
   updateStudentTaskStatus,
   updateTimesheetEntryForStudent,
+  uploadStudentDocumentsForStudent,
 } from "../services/studentWorkflowService.js";
 
 // @desc    Create a new weekly log with attachments
@@ -110,6 +111,21 @@ const getMyProfileDetails = asyncHandler(async (req, res) => {
   res.status(200).json(studentData);
 });
 
+// @desc    Upload required student documents
+// @route   POST /api/student/documents
+const uploadStudentDocuments = asyncHandler(async (req, res) => {
+  const documents = await uploadStudentDocumentsForStudent({
+    studentId: req.user._id,
+    files: req.files,
+  });
+
+  res.status(201).json({
+    success: true,
+    message: "Documents uploaded successfully",
+    documents,
+  });
+});
+
 const getStudentTimesheets = asyncHandler(async (req, res) => {
   const entries = await getStudentTimesheetsForStudent(req.params.studentId);
   res.status(200).json(entries);
@@ -191,4 +207,5 @@ export {
   getStudentTasks,
   updateMyTaskStatus,
   getStudentDashboardStats,
+  uploadStudentDocuments,
 };
