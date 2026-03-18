@@ -847,33 +847,41 @@ const getDashboardStats = async (req, res) => {
     const batchStudents = await Student.find({
       student_batch: activeBatch._id,
     })
-      .select("_id assigned_company completed_program")
+      .select("_id status assigned_company completed_program")
       .lean();
 
     const studentIds = batchStudents.map((student) => student._id);
     const totalStudents = batchStudents.length;
     const activeStudents = batchStudents.filter(
-      (student) => student.assigned_company,
+      (student) => student.status === "ongoing",
     ).length;
-    const unassignedStudents = totalStudents - activeStudents;
+    const unassignedStudents = batchStudents.filter(
+      (student) => student.status === "enrolled",
+    ).length;
     const completedStudents = await Student.countDocuments({
       student_batch: activeBatch._id,
-      completed_program: true,
+      status: "completed",
     });
 
-    const assignedCompanyIds = Array.from(
+    // Get all companies registered in the system
+    const totalCompanies = await Company.countDocuments({});
+
+    // Get companies with active (ongoing) students in this batch
+    const ongoingStudents = batchStudents.filter(
+      (student) => student.status === "ongoing",
+    );
+    const activeCompanyIds = Array.from(
       new Set(
-        batchStudents
+        ongoingStudents
           .map((student) => student.assigned_company)
           .filter(Boolean)
           .map((id) => id.toString()),
       ),
     ).map((id) => new mongoose.Types.ObjectId(id));
 
-    const totalCompanies = assignedCompanyIds.length;
-    const activeCompanies = assignedCompanyIds.length
+    const activeCompanies = activeCompanyIds.length
       ? await Company.countDocuments({
-          _id: { $in: assignedCompanyIds },
+          _id: { $in: activeCompanyIds },
           isSuspended: { $ne: true },
         })
       : 0;
