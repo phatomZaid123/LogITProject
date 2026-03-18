@@ -103,12 +103,7 @@ router.get(
   authorize("dean"),
   getDeanStudentReport,
 );
-router.get(
-  "/reports/batch",
-  protect,
-  authorize("dean"),
-  generateBatchReports,
-);
+router.get("/reports/batch", protect, authorize("dean"), generateBatchReports);
 router.get("/logs/pending", protect, authorize("dean"), getPendingLogs);
 router.put("/logs/:id/review", protect, authorize("dean"), reviewStudentLog);
 router.put(

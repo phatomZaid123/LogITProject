@@ -116,9 +116,7 @@ export default function StudentProfile({
 
     try {
       setLoadingReport(true);
-      const response = await api.get(
-        `/dean/reports/student/${studentId}`,
-      );
+      const response = await api.get(`/dean/reports/student/${studentId}`);
       setReport(response.data?.report || null);
       toast.success("Report generated successfully");
     } catch (error) {
@@ -138,13 +136,10 @@ export default function StudentProfile({
 
     try {
       setDownloading(true);
-      const response = await api.get(
-        `/dean/reports/student/${studentId}`,
-        {
-          params: { format: "csv" },
-          responseType: "blob",
-        },
-      );
+      const response = await api.get(`/dean/reports/student/${studentId}`, {
+        params: { format: "csv" },
+        responseType: "blob",
+      });
 
       const blob = new Blob([response.data], {
         type: "text/csv;charset=utf-8;",
@@ -175,13 +170,10 @@ export default function StudentProfile({
 
     try {
       setDownloading(true);
-      const response = await api.get(
-        `/dean/reports/student/${studentId}`,
-        {
-          params: { format: "pdf" },
-          responseType: "blob",
-        },
-      );
+      const response = await api.get(`/dean/reports/student/${studentId}`, {
+        params: { format: "pdf" },
+        responseType: "blob",
+      });
 
       const blob = new Blob([response.data], { type: "application/pdf" });
       const url = window.URL.createObjectURL(blob);
@@ -291,7 +283,7 @@ export default function StudentProfile({
           </div>
 
           {!selfView && (
-            <button 
+            <button
               onClick={fetchReport}
               disabled={loadingReport}
               className="bg-white hover:bg-gray-100 text-purple-600 px-6 py-3 rounded-lg text-sm font-semibold shadow-lg transition-all hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
@@ -550,7 +542,9 @@ export default function StudentProfile({
         <div className="px-8 mb-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between gap-3 mb-4">
-              <h2 className="text-lg font-bold text-gray-800">Generated Report</h2>
+              <h2 className="text-lg font-bold text-gray-800">
+                Generated Report
+              </h2>
               <div className="flex gap-2">
                 <button
                   onClick={downloadCsv}
@@ -570,7 +564,9 @@ export default function StudentProfile({
             </div>
             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 max-h-96 overflow-y-auto">
               <pre className="text-sm text-gray-800 whitespace-pre-wrap warp-break-words">
-                {typeof report === "string" ? report : JSON.stringify(report, null, 2)}
+                {typeof report === "string"
+                  ? report
+                  : JSON.stringify(report, null, 2)}
               </pre>
             </div>
           </div>

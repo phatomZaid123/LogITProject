@@ -1154,8 +1154,11 @@ const generateBatchReports = async (req, res) => {
     }
 
     // Get all students in the active batch
-    const students = await Student.find({ student_batch: activeBatch._id })
-      .select("_id name email student_admission_number student_course ojt_hours_required assigned_company student_batch");
+    const students = await Student.find({
+      student_batch: activeBatch._id,
+    }).select(
+      "_id name email student_admission_number student_course ojt_hours_required assigned_company student_batch",
+    );
 
     if (students.length === 0) {
       return res.status(200).json({
@@ -1197,7 +1200,10 @@ const generateBatchReports = async (req, res) => {
           studentsCompleted++;
         }
       } catch (error) {
-        console.error(`Error generating report for student ${student._id}:`, error);
+        console.error(
+          `Error generating report for student ${student._id}:`,
+          error,
+        );
         // Continue with next student if one fails
         studentReports.push({
           student: {
