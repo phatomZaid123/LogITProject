@@ -63,7 +63,22 @@ const StudentRegistration = () => {
     e.preventDefault();
     setLoading(true);
     setError("");
-
+    if (
+      !formData.name ||
+      !formData.email ||
+      !formData.password ||
+      !formData.admission_number ||
+      !formData.course
+    ) {
+      setLoading(false);
+      setError("Please fill in all required fields.");
+      return;
+    }
+    if (formData.admission_number.length < 8) {
+      setLoading(false);
+      setError("Admission number must be at least 8 digits.");
+      return;
+    }
     const serializedPayload = {
       name: normalizeText(formData.name),
       email: normalizeEmail(formData.email),
@@ -141,7 +156,7 @@ const StudentRegistration = () => {
             <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
             <input
               type="email"
-              placeholder="Institutional Email"
+              placeholder="Student Email"
               value={formData.email}
               className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
               onChange={(e) =>
@@ -157,7 +172,7 @@ const StudentRegistration = () => {
           <div className="relative">
             <Hash className="absolute left-3 top-3 text-gray-400" size={18} />
             <input
-              type="text"
+              type="number"
               placeholder="Student ID (e.g. 2021-001)"
               value={formData.admission_number}
               className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"

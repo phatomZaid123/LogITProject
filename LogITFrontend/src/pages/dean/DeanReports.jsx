@@ -8,22 +8,21 @@ import {
 import Button from "../../components/ui/Button";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
-import { Download, FileText, RefreshCw } from "lucide-react";
+import {
+  Download,
+  FileText,
+  RefreshCw,
+  BookOpen,
+  Clock,
+  TrendingUp,
+} from "lucide-react";
 
 function DeanReports() {
   const { api } = useAuth();
-  const [students, setStudents] = useState([]);
-  const [selectedStudentId, setSelectedStudentId] = useState("");
   const [report, setReport] = useState(null);
-  const [loadingStudents, setLoadingStudents] = useState(false);
   const [loadingReport, setLoadingReport] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [expandedLogId, setExpandedLogId] = useState(null);
-
-  const selectedStudent = useMemo(
-    () => students.find((student) => student._id === selectedStudentId) || null,
-    [students, selectedStudentId],
-  );
 
   const getProfileImageSrc = (value = "") => {
     if (!value) return null;
@@ -32,105 +31,42 @@ function DeanReports() {
     return `http://localhost:5000${value}`;
   };
 
-  useEffect(() => {
-    const fetchStudents = async () => {
-      try {
-        setLoadingStudents(true);
-        const response = await api.get("/dean/getAllStudents");
-        setStudents(response.data?.students || []);
-      } catch (error) {
-        toast.error(error.response?.data?.message || "Failed to load students");
-      } finally {
-        setLoadingStudents(false);
-      }
-    };
-
-    fetchStudents();
-  }, [api]);
-
   const fetchReport = async () => {
-    if (!selectedStudentId) {
-      toast.error("Please select a student first");
-      return;
-    }
-
     try {
       setLoadingReport(true);
-      const response = await api.get(
-        `/dean/reports/student/${selectedStudentId}`,
-      );
-      setReport(response.data?.report || null);
-      setExpandedLogId(null);
-      toast.success("Report generated");
+      const response = await api.get("/dean/reports/batch");
+      setReport(response.data);
+      toast.success("Reports generated successfully");
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to generate report");
+      console.error("Error generating reports:", error);
+      const errorMsg =
+        error.response?.data?.message || "Failed to generate reports";
+      toast.error(errorMsg);
     } finally {
       setLoadingReport(false);
     }
   };
 
-  const downloadCsv = async () => {
-    if (!selectedStudentId) {
-      toast.error("Please select a student first");
-      return;
-    }
-
-    try {
-      setDownloading(true);
-      const response = await api.get(
-        `/dean/reports/student/${selectedStudentId}`,
-        {
-          params: { format: "csv" },
-          responseType: "blob",
-        },
-      );
-
-      const blob = new Blob([response.data], {
-        type: "text/csv;charset=utf-8;",
-      });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `dean-student-report-${selectedStudentId}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      toast.success("CSV downloaded");
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to download CSV");
-    } finally {
-      setDownloading(false);
-    }
-  };
-
   const downloadPdf = async () => {
-    if (!selectedStudentId) {
-      toast.error("Please select a student first");
-      return;
-    }
-
     try {
       setDownloading(true);
-      const response = await api.get(
-        `/dean/reports/student/${selectedStudentId}`,
-        {
-          params: { format: "pdf" },
-          responseType: "blob",
-        },
-      );
+      const response = await api.get("/dean/reports/batch", {
+        params: { format: "pdf" },
+        responseType: "blob",
+      });
 
       const blob = new Blob([response.data], { type: "application/pdf" });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `dean-student-report-${selectedStudentId}.pdf`;
+      link.download = `batch-report-${report.batch.session_name}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
       toast.success("PDF downloaded");
     } catch (error) {
+      console.error("Error downloading PDF:", error);
       toast.error(error.response?.data?.message || "Failed to download PDF");
     } finally {
       setDownloading(false);
@@ -140,9 +76,9 @@ function DeanReports() {
   return (
     <div className="space-y-6 pb-8">
       <div className="bg-purple-700 rounded-xl p-8 text-white shadow-lg">
-        <h1 className="text-3xl font-bold">Student Reports</h1>
+        <h1 className="text-3xl font-bold">Batch Reports</h1>
         <p className="text-purple-100 mt-2">
-          Generate detailed progress reports for any student in the active
+          Generate detailed progress reports for all students in the active
           batch.
         </p>
       </div>
@@ -154,56 +90,24 @@ function DeanReports() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Student
-              </label>
-              <select
-                value={selectedStudentId}
-                onChange={(e) => setSelectedStudentId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="">Choose student...</option>
-                {students.map((student) => (
-                  <option key={student._id} value={student._id}>
-                    {student.name} - {student.student_admission_number} (
-                    {student.student_course})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex gap-2">
-              <Button
-                onClick={fetchReport}
-                disabled={loadingReport || loadingStudents}
-              >
-                {loadingReport ? "Generating..." : "Generate"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={downloadCsv}
-                disabled={downloading || loadingStudents}
-              >
-                <Download size={16} className="mr-2" />
-                CSV
-              </Button>
-              <Button
-                variant="outline"
-                onClick={downloadPdf}
-                disabled={downloading || loadingStudents}
-              >
-                <Download size={16} className="mr-2" />
-                PDF
-              </Button>
-            </div>
+          <div className="flex gap-2">
+            <Button onClick={fetchReport} disabled={loadingReport}>
+              {loadingReport ? "Generating..." : "Generate Report"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={downloadPdf}
+              disabled={downloading || !report}
+            >
+              <Download size={16} className="mr-2" />
+              PDF
+            </Button>
           </div>
 
-          {loadingStudents && (
+          {loadingReport && (
             <p className="text-sm text-gray-500 flex items-center gap-2">
-              <RefreshCw size={14} className="animate-spin" /> Loading
-              students...
+              <RefreshCw size={14} className="animate-spin" /> Generating
+              reports for all students...
             </p>
           )}
         </CardContent>
@@ -211,30 +115,30 @@ function DeanReports() {
 
       {report && (
         <>
+          {/* Batch Summary */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Student</CardTitle>
+                <CardTitle className="text-lg">Batch</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-gray-700 space-y-1">
-                {getProfileImageSrc(report.student?.profile_image) && (
-                  <img
-                    src={getProfileImageSrc(report.student?.profile_image)}
-                    alt="Student profile"
-                    className="w-16 h-16 rounded-full object-cover border border-gray-200 mb-2"
-                  />
-                )}
                 <p className="font-semibold text-gray-900">
-                  Name: {report.student?.name}
+                  Session: {report.batch.session_name}
                 </p>
-                <p>Email: {report.student?.email || "N/A"}</p>
-                <p>Course: {report.student?.student_course || "N/A"}</p>
-                <p>
-                  Admission: {report.student?.student_admission_number || "N/A"}
-                </p>
-                <p>
-                  Company:{" "}
-                  {report.student?.assigned_company_name || "Unassigned"}
+                <p>Year: {report.batch.year}</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-gray-700 space-y-1">
+                <p>Total Students: {report.summary.totalStudents}</p>
+                <p>Completed: {report.summary.studentsCompleted}</p>
+                <p>Ongoing: {report.summary.studentsOngoing}</p>
+                <p className="font-semibold text-gray-900">
+                  Avg Progress: {report.summary.averageProgress}%
                 </p>
               </CardContent>
             </Card>
@@ -244,23 +148,7 @@ function DeanReports() {
                 <CardTitle className="text-lg">Hours</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-gray-700 space-y-1">
-                <p>Required: {report.summary?.requiredHours || 0}h</p>
-                <p>Approved: {report.summary?.approvedHours || 0}h</p>
-                <p>Remaining: {report.summary?.remainingHours || 0}h</p>
-                <p className="font-semibold text-gray-900">
-                  Progress: {report.summary?.progressPercent || 0}%
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Activity</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-gray-700 space-y-1">
-                <p>Logs: {report.metrics?.logs?.total || 0}</p>
-                <p>Timesheets: {report.metrics?.timesheets?.total || 0}</p>
-                <p>Tasks: {report.metrics?.tasks?.total || 0}</p>
+                <p>Total Approved Hours: {report.summary.totalApprovedHours}</p>
                 <p>
                   Generated: {new Date(report.generatedAt).toLocaleString()}
                 </p>
@@ -268,190 +156,197 @@ function DeanReports() {
             </Card>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Timesheet Entries</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="px-3 py-2 text-left">Date</th>
-                      <th className="px-3 py-2 text-left">Time In</th>
-                      <th className="px-3 py-2 text-left">Time Out</th>
-                      <th className="px-3 py-2 text-left">Hours</th>
-                      <th className="px-3 py-2 text-left">Status</th>
-                      <th className="px-3 py-2 text-left">Daily Log</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {(report.details?.timesheets || []).length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={6}
-                          className="px-3 py-6 text-center text-gray-500"
-                        >
-                          No timesheet entries found.
-                        </td>
-                      </tr>
-                    ) : (
-                      (report.details?.timesheets || []).map((item) => (
-                        <tr key={item._id}>
-                          <td className="px-3 py-2">
-                            {item.date
-                              ? new Date(item.date).toLocaleDateString()
-                              : "N/A"}
-                          </td>
-                          <td className="px-3 py-2">{item.timeIn || "-"}</td>
-                          <td className="px-3 py-2">{item.timeOut || "-"}</td>
-                          <td className="px-3 py-2">
-                            {Number(item.totalHours || 0).toFixed(2)}
-                          </td>
-                          <td className="px-3 py-2">{item.status || "-"}</td>
-                          <td className="px-3 py-2 max-w-md">
-                            <div className="line-clamp-3">
-                              {item.dailyLog || "-"}
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Student Reports Cards */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">
+                Student Reports
+              </h2>
+              <span className="text-sm font-semibold px-3 py-1 bg-purple-100 text-purple-700 rounded-full">
+                {report.studentReports.length} Students
+              </span>
+            </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Weekly Logbook Entries</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="px-3 py-2 text-left">Submitted</th>
-                      <th className="px-3 py-2 text-left">Week</th>
-                      <th className="px-3 py-2 text-left">Status</th>
-                      <th className="px-3 py-2 text-left">Answers</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {(report.details?.logbooks || []).length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={4}
-                          className="px-3 py-6 text-center text-gray-500"
-                        >
-                          No logbook entries found.
-                        </td>
-                      </tr>
-                    ) : (
-                      (report.details?.logbooks || []).map((item) => (
-                        <Fragment key={item._id}>
-                          <tr>
-                            <td className="px-3 py-2">
-                              {item.createdAt
-                                ? new Date(item.createdAt).toLocaleDateString()
-                                : "N/A"}
-                            </td>
-                            <td className="px-3 py-2">
-                              {item.weekNumber
-                                ? `Week ${item.weekNumber}`
-                                : "Weekly Log"}
-                            </td>
-                            <td className="px-3 py-2">{item.status || "-"}</td>
-                            <td className="px-3 py-2">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setExpandedLogId((prev) =>
-                                    prev === item._id ? null : item._id,
-                                  )
-                                }
-                                className="px-2 py-1 rounded border border-purple-200 text-purple-700 hover:bg-purple-50"
-                              >
-                                {expandedLogId === item._id
-                                  ? "Hide full answers"
-                                  : "View full answers"}
-                              </button>
-                            </td>
-                          </tr>
-                          {expandedLogId === item._id && (
-                            <tr>
-                              <td colSpan={4} className="px-4 py-4 bg-gray-50">
-                                <div className="space-y-3 text-sm text-gray-700">
-                                  <div>
-                                    <p className="font-semibold text-gray-900">
-                                      1. Duties and Responsibilities
-                                    </p>
-                                    <p className="whitespace-pre-wrap">
-                                      {item.dutiesAndResponsibilities || "-"}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <p className="font-semibold text-gray-900">
-                                      2. New Things Learned
-                                    </p>
-                                    <p className="whitespace-pre-wrap">
-                                      {item.newThingsLearned || "-"}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <p className="font-semibold text-gray-900">
-                                      3. Problems Encountered
-                                    </p>
-                                    <p className="whitespace-pre-wrap">
-                                      {item.problemsEncountered || "-"}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <p className="font-semibold text-gray-900">
-                                      4. Solutions Implemented
-                                    </p>
-                                    <p className="whitespace-pre-wrap">
-                                      {item.solutionsImplemented || "-"}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <p className="font-semibold text-gray-900">
-                                      5. Accomplishments and Deliverables
-                                    </p>
-                                    <p className="whitespace-pre-wrap">
-                                      {item.accomplishmentsAndDeliverables ||
-                                        "-"}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <p className="font-semibold text-gray-900">
-                                      6. Goals for Next Week
-                                    </p>
-                                    <p className="whitespace-pre-wrap">
-                                      {item.goalsForNextWeek || "-"}
-                                    </p>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </Fragment>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+            {report.studentReports.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <p className="text-gray-500">
+                    No students found in active batch.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {report.studentReports.map((studentReport) => (
+                  <Card
+                    key={studentReport.student._id}
+                    className={`hover:shadow-lg transition-shadow ${
+                      studentReport.error ? "border-red-200" : ""
+                    }`}
+                  >
+                    <CardContent className="p-6">
+                      {studentReport.error ? (
+                        <div className="flex flex-col items-center justify-center h-full">
+                          <div className="text-4xl text-red-500 mb-2">⚠️</div>
+                          <p className="text-sm font-semibold text-gray-900 text-center">
+                            {studentReport.student.name}
+                          </p>
+                          <p className="text-xs text-red-600 mt-2">
+                            {studentReport.error}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-5">
+                          {/* Header with name and status */}
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h3 className="text-lg font-bold text-gray-900">
+                                {studentReport.student.name}
+                              </h3>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {studentReport.student.student_admission_number}
+                              </p>
+                            </div>
+                            <div className="ml-2">
+                              {studentReport.summary.isOjtComplete ? (
+                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                                  Completed
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+                                  Ongoing
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Course and Company */}
+                          <div className="space-y-2 border-t border-gray-100 pt-4">
+                            <div>
+                              <p className="text-xs text-gray-500 uppercase font-semibold">
+                                Course
+                              </p>
+                              <p className="text-sm text-gray-900 font-medium">
+                                {studentReport.student.student_course || "N/A"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 uppercase font-semibold">
+                                Company
+                              </p>
+                              <p className="text-sm text-gray-900 font-medium truncate">
+                                {studentReport.student
+                                  .assigned_company_name || (
+                                  <span className="text-gray-400">
+                                    Unassigned
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Metrics Grid */}
+                          <div className="grid grid-cols-3 gap-3 bg-linear-to-br from-gray-50 to-gray-100 rounded-lg p-4">
+                            {/* Approved Hours */}
+                            <div className="text-center">
+                              <div className="flex items-center justify-center h-8 bg-blue-100 rounded-lg mb-2">
+                                <Clock size={16} className="text-blue-600" />
+                              </div>
+                              <p className="text-xs text-gray-500 uppercase font-semibold">
+                                Hours
+                              </p>
+                              <p className="text-sm font-bold text-gray-900">
+                                {studentReport.summary.approvedHours}h
+                              </p>
+                            </div>
+
+                            {/* Logbooks */}
+                            <div className="text-center">
+                              <div className="flex items-center justify-center h-8 bg-green-100 rounded-lg mb-2">
+                                <BookOpen
+                                  size={16}
+                                  className="text-green-600"
+                                />
+                              </div>
+                              <p className="text-xs text-gray-500 uppercase font-semibold">
+                                Logs
+                              </p>
+                              <p className="text-sm font-bold text-gray-900">
+                                {studentReport.metrics?.logs?.total || 0}
+                              </p>
+                            </div>
+
+                            {/* Progress */}
+                            <div className="text-center">
+                              <div className="flex items-center justify-center h-8 bg-purple-100 rounded-lg mb-2">
+                                <TrendingUp
+                                  size={16}
+                                  className="text-purple-600"
+                                />
+                              </div>
+                              <p className="text-xs text-gray-500 uppercase font-semibold">
+                                Progress
+                              </p>
+                              <p className="text-sm font-bold text-gray-900">
+                                {studentReport.summary.progressPercent}%
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Progress Bar */}
+                          <div className="space-y-2 border-t border-gray-100 pt-4">
+                            <div className="flex justify-between items-center">
+                              <p className="text-xs text-gray-600 font-semibold">
+                                OJT Progress
+                              </p>
+                              <p className="text-xs font-bold text-purple-600">
+                                {studentReport.summary.approvedHours} /{" "}
+                                {studentReport.summary.requiredHours} hours
+                              </p>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  studentReport.summary.progressPercent >= 100
+                                    ? "bg-green-500"
+                                    : studentReport.summary.progressPercent >=
+                                        75
+                                      ? "bg-blue-500"
+                                      : studentReport.summary.progressPercent >=
+                                          50
+                                        ? "bg-yellow-500"
+                                        : "bg-orange-500"
+                                }`}
+                                style={{
+                                  width: `${Math.min(studentReport.summary.progressPercent, 100)}%`,
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+
+                          {/* Email footer */}
+                          <div className="border-t border-gray-100 pt-4">
+                            <p className="text-xs text-gray-500">
+                              {studentReport.student.email}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
-            </CardContent>
-          </Card>
+            )}
+          </div>
         </>
       )}
 
-      {!report && selectedStudent && !loadingReport && (
+      {!report && !loadingReport && (
         <Card>
           <CardContent className="p-6 text-sm text-gray-500">
-            Click <span className="font-semibold text-gray-700">Generate</span>{" "}
-            to build report for {selectedStudent.name}.
+            Click{" "}
+            <span className="font-semibold text-gray-700">Generate Report</span>{" "}
+            to build reports for all students in the active batch
           </CardContent>
         </Card>
       )}

@@ -36,7 +36,7 @@ function StudentList() {
     const query = searchQuery.toLowerCase();
     return (
       student.name?.toLowerCase().includes(query) ||
-      student.student_admission_number?.toLowerCase().includes(query) ||
+      student.student_admission_number?.toString().toLowerCase().includes(query) ||
       student.student_course?.toLowerCase().includes(query) ||
       student.assigned_company?.toLowerCase().includes(query)
     );

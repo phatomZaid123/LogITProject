@@ -27,6 +27,10 @@ export default function StudentProfile({
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("logs");
   const [uploadingDocuments, setUploadingDocuments] = useState(false);
+  const [report, setReport] = useState(null);
+  const [loadingReport, setLoadingReport] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
   useEffect(() => {
     const fetchStudentData = async () => {
       try {
@@ -97,6 +101,106 @@ export default function StudentProfile({
     }
   };
 
+  //Generating student report
+
+  const getStudentId = () => {
+    return id || user?.id;
+  };
+
+  const fetchReport = async () => {
+    const studentId = getStudentId();
+    if (!studentId) {
+      toast.error("Student ID not found");
+      return;
+    }
+
+    try {
+      setLoadingReport(true);
+      const response = await api.get(
+        `/dean/reports/student/${studentId}`,
+      );
+      setReport(response.data?.report || null);
+      toast.success("Report generated successfully");
+    } catch (error) {
+      console.error("Error generating report:", error);
+      toast.error(error.response?.data?.message || "Failed to generate report");
+    } finally {
+      setLoadingReport(false);
+    }
+  };
+
+  const downloadCsv = async () => {
+    const studentId = getStudentId();
+    if (!studentId) {
+      toast.error("Student ID not found");
+      return;
+    }
+
+    try {
+      setDownloading(true);
+      const response = await api.get(
+        `/dean/reports/student/${studentId}`,
+        {
+          params: { format: "csv" },
+          responseType: "blob",
+        },
+      );
+
+      const blob = new Blob([response.data], {
+        type: "text/csv;charset=utf-8;",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `student-report-${studentId}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("CSV downloaded");
+    } catch (error) {
+      console.error("Error downloading CSV:", error);
+      toast.error(error.response?.data?.message || "Failed to download CSV");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const downloadPdf = async () => {
+    const studentId = getStudentId();
+    if (!studentId) {
+      toast.error("Student ID not found");
+      return;
+    }
+
+    try {
+      setDownloading(true);
+      const response = await api.get(
+        `/dean/reports/student/${studentId}`,
+        {
+          params: { format: "pdf" },
+          responseType: "blob",
+        },
+      );
+
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `student-report-${studentId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("PDF downloaded");
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+      toast.error(error.response?.data?.message || "Failed to download PDF");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -153,8 +257,7 @@ export default function StudentProfile({
   const totalApprovedHours = ojtHoursCompleted;
   const evaluation = student?.evaluation || null;
   const documents = student?.documents || [];
-  const baseFileUrl =
-    api?.defaults?.baseURL?.replace(/\/api\/?$/, "") || "";
+  const baseFileUrl = api?.defaults?.baseURL?.replace(/\/api\/?$/, "") || "";
   const resolveFileUrl = (value) =>
     value ? (value.startsWith("http") ? value : `${baseFileUrl}${value}`) : "#";
 
@@ -188,8 +291,12 @@ export default function StudentProfile({
           </div>
 
           {!selfView && (
-            <button className="bg-white hover:bg-gray-100 text-purple-600 px-6 py-3 rounded-lg text-sm font-semibold shadow-lg transition-all hover:shadow-xl">
-              GENERATE REPORT
+            <button 
+              onClick={fetchReport}
+              disabled={loadingReport}
+              className="bg-white hover:bg-gray-100 text-purple-600 px-6 py-3 rounded-lg text-sm font-semibold shadow-lg transition-all hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loadingReport ? "Generating..." : "GENERATE REPORT"}
             </button>
           )}
         </div>
@@ -437,6 +544,38 @@ export default function StudentProfile({
           )}
         </div>
       </div>
+
+      {/* GENERATED REPORT SECTION */}
+      {report && (
+        <div className="px-8 mb-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h2 className="text-lg font-bold text-gray-800">Generated Report</h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={downloadCsv}
+                  disabled={downloading}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {downloading ? "Downloading..." : "Download CSV"}
+                </button>
+                <button
+                  onClick={downloadPdf}
+                  disabled={downloading}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {downloading ? "Downloading..." : "Download PDF"}
+                </button>
+              </div>
+            </div>
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 max-h-96 overflow-y-auto">
+              <pre className="text-sm text-gray-800 whitespace-pre-wrap warp-break-words">
+                {typeof report === "string" ? report : JSON.stringify(report, null, 2)}
+              </pre>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* REPORT SECTION */}
       <div className="px-8">

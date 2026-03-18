@@ -23,6 +23,7 @@ import {
   getAlumniBatches,
   getAlumniBatchStudents,
   markStudentCompleted,
+  generateBatchReports,
 } from "../controllers/deanController.js";
 import { getDeanStudentReport } from "../controllers/studentReportController.js";
 import { askDeanAssistant } from "../controllers/deanChatbotController.js";
@@ -101,6 +102,12 @@ router.get(
   protect,
   authorize("dean"),
   getDeanStudentReport,
+);
+router.get(
+  "/reports/batch",
+  protect,
+  authorize("dean"),
+  generateBatchReports,
 );
 router.get("/logs/pending", protect, authorize("dean"), getPendingLogs);
 router.put("/logs/:id/review", protect, authorize("dean"), reviewStudentLog);

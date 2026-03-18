@@ -8,6 +8,7 @@ import { LOGBOOK } from "../models/logbook.js";
 import { TIMESHEET } from "../models/timesheet.js";
 import Evaluation from "../models/evaluation.js";
 import { createNotification } from "../utils/notificationUtils.js";
+import { generateDeanStudentReport } from "../services/studentReportService.js";
 
 const enrichCompaniesWithAssignments = async (companies = []) => {
   if (!companies.length) return companies;
@@ -1138,6 +1139,112 @@ const getCompaniesByStatus = async (req, res) => {
   }
 };
 
+// Generate reports for all students in active batch
+const generateBatchReports = async (req, res) => {
+  try {
+    const deanId = req.user.id;
+
+    // Find the active batch
+    const activeBatch = await Batch.findOne({ isActive: true });
+    if (!activeBatch) {
+      return res.status(404).json({
+        success: false,
+        message: "No active batch found",
+      });
+    }
+
+    // Get all students in the active batch
+    const students = await Student.find({ student_batch: activeBatch._id })
+      .select("_id name email student_admission_number student_course ojt_hours_required assigned_company student_batch");
+
+    if (students.length === 0) {
+      return res.status(200).json({
+        success: true,
+        batch: {
+          id: activeBatch._id,
+          session_name: activeBatch.session_name,
+          year: activeBatch.year,
+        },
+        studentReports: [],
+        totalStudents: 0,
+        summary: {
+          totalStudents: 0,
+          totalApprovedHours: 0,
+          averageProgress: 0,
+          studentsCompleted: 0,
+          studentsOngoing: 0,
+        },
+        generatedAt: new Date().toISOString(),
+      });
+    }
+
+    // Generate reports for all students
+    const studentReports = [];
+    let totalApprovedHours = 0;
+    let studentsCompleted = 0;
+    let totalProgress = 0;
+
+    for (const student of students) {
+      try {
+        const report = await generateDeanStudentReport({
+          studentId: student._id.toString(),
+          deanId,
+        });
+        studentReports.push(report);
+        totalApprovedHours += report.summary.approvedHours || 0;
+        totalProgress += report.summary.progressPercent || 0;
+        if (report.summary.isOjtComplete) {
+          studentsCompleted++;
+        }
+      } catch (error) {
+        console.error(`Error generating report for student ${student._id}:`, error);
+        // Continue with next student if one fails
+        studentReports.push({
+          student: {
+            _id: student._id,
+            name: student.name,
+            email: student.email,
+            student_admission_number: student.student_admission_number,
+            student_course: student.student_course,
+          },
+          error: "Failed to generate report",
+          generatedAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    const averageProgress =
+      students.length > 0 ? (totalProgress / students.length).toFixed(2) : 0;
+    const studentsOngoing = students.length - studentsCompleted;
+
+    return res.status(200).json({
+      success: true,
+      batch: {
+        id: activeBatch._id,
+        session_name: activeBatch.session_name,
+        year: activeBatch.year,
+      },
+      studentReports,
+      totalStudents: students.length,
+      summary: {
+        totalStudents: students.length,
+        totalApprovedHours: Number(totalApprovedHours.toFixed(2)),
+        averageProgress: Number(averageProgress),
+        studentsCompleted,
+        studentsOngoing,
+      },
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error generating batch reports:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to generate batch reports",
+      error: error.message,
+    });
+  }
+};
+
 export {
   createBatch,
   createStudent,
@@ -1161,4 +1268,5 @@ export {
   unsuspendCompany,
   getCompaniesByStatus,
   markStudentCompleted,
+  generateBatchReports,
 };
