@@ -173,6 +173,8 @@ export const submitWeeklyTimesheetForStudent = async ({
     };
   }
 
+  await markPastTimesheetAbsencesForStudent(studentId);
+
   const entries = await TIMESHEET.find({
     student: studentId,
     status: { $in: ["pending", "company_declined"] },
@@ -183,13 +185,12 @@ export const submitWeeklyTimesheetForStudent = async ({
     throw httpError(400, "No draft entries found for this week.");
   }
 
-  let autoTimedOutCount = 0;
-
   for (const entry of entries) {
-    if (!entry.timeOut) {
-      entry.timeOut = "23:59";
-      entry.autoTimedOut = true;
-      autoTimedOutCount += 1;
+    if (!entry.timeIn || !entry.timeOut) {
+      throw httpError(
+        400,
+        "All entries must have time in and time out before submitting.",
+      );
     }
 
     entry.status = "submitted_to_company";
@@ -214,7 +215,7 @@ export const submitWeeklyTimesheetForStudent = async ({
 
   return {
     modifiedCount: entries.length,
-    autoTimedOutCount,
+    autoTimedOutCount: 0,
   };
 };
 
@@ -360,7 +361,33 @@ export const getStudentTimesheetsForStudent = async (studentId) => {
     throw httpError(400, "Invalid Student ID format");
   }
 
+  await markPastTimesheetAbsencesForStudent(studentId);
   return TIMESHEET.find({ student: studentId }).sort({ date: -1 });
+};
+
+export const markPastTimesheetAbsencesForStudent = async (studentId) => {
+  if (!studentId || studentId === "undefined") {
+    throw httpError(400, "Student ID is required");
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(studentId)) {
+    throw httpError(400, "Invalid Student ID format");
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const result = await TIMESHEET.updateMany(
+    {
+      student: studentId,
+      date: { $lt: today },
+      status: { $in: ["pending", "company_declined"] },
+      $or: [{ timeIn: { $in: [null, ""] } }, { timeOut: { $in: [null, ""] } }],
+    },
+    { $set: { status: "absent", autoTimedOut: false } },
+  );
+
+  return result?.modifiedCount || 0;
 };
 
 export const getStudentOjtProgressForStudent = async (studentId) => {
@@ -422,6 +449,15 @@ export const createTimesheetEntryForStudent = async ({
 
   const entryDate = new Date(date || new Date());
   entryDate.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (entryDate.getTime() !== today.getTime()) {
+    throw httpError(
+      400,
+      "Time in is only allowed for today. Past dates are marked absent.",
+    );
+  }
 
   const existingEntry = await TIMESHEET.findOne({
     student: studentId,
@@ -545,6 +581,18 @@ export const updateTimesheetEntryForStudent = async ({
 
   if (entry.student.toString() !== studentId.toString()) {
     throw httpError(403, "Not authorized");
+  }
+
+  const entryDate = new Date(entry.date);
+  entryDate.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (entryDate.getTime() !== today.getTime()) {
+    throw httpError(
+      403,
+      "This entry is closed. Past dates are marked absent.",
+    );
   }
 
   if (!timeOut) {

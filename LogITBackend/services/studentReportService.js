@@ -7,6 +7,7 @@ import { LOGBOOK } from "../models/logbook.js";
 import { TIMESHEET } from "../models/timesheet.js";
 import { TASK } from "../models/task.js";
 import { httpError } from "../utils/httpError.js";
+import { markPastTimesheetAbsencesForStudent } from "./studentWorkflowService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,11 +25,16 @@ const aggregateStudentReport = async (studentId) => {
   const student = await Student.findById(studentId)
     .select("-password -createdAt -updatedAt -__v -role")
     .populate("student_batch", "session_name year")
-    .populate("assigned_company", "name company_address");
+    .populate(
+      "assigned_company",
+      "name company_address contact_person job_title",
+    );
 
   if (!student) {
     throw httpError(404, "Student not found");
   }
+
+  await markPastTimesheetAbsencesForStudent(studentId);
 
   const [logs, timesheets, tasks] = await Promise.all([
     LOGBOOK.find({ created_by: studentId }).sort({ createdAt: -1 }).lean(),
@@ -70,6 +76,14 @@ const aggregateStudentReport = async (studentId) => {
       student_batch_name: student.student_batch?.session_name || "N/A",
       student_batch_year: student.student_batch?.year || "N/A",
       assigned_company_name: student.assigned_company?.name || "Unassigned",
+      assigned_company_address:
+        student.assigned_company?.company_address || "N/A",
+      assigned_company_contact_name:
+        student.assigned_company?.contact_person?.name || "N/A",
+      assigned_company_contact_email:
+        student.assigned_company?.contact_person?.email || "N/A",
+      assigned_company_job_title:
+        student.assigned_company?.job_title || "N/A",
     },
     summary: {
       requiredHours,
@@ -151,6 +165,16 @@ export const convertStudentReportToCsv = (report) => {
     ["batch", report.student?.student_batch_name || ""],
     ["batchYear", report.student?.student_batch_year || ""],
     ["assignedCompany", report.student?.assigned_company_name || ""],
+    ["assignedCompanyAddress", report.student?.assigned_company_address || ""],
+    [
+      "assignedCompanyContactName",
+      report.student?.assigned_company_contact_name || "",
+    ],
+    [
+      "assignedCompanyContactEmail",
+      report.student?.assigned_company_contact_email || "",
+    ],
+    ["assignedCompanyJobTitle", report.student?.assigned_company_job_title || ""],
     ["requiredHours", report.summary?.requiredHours || 0],
     ["approvedHours", report.summary?.approvedHours || 0],
     ["loggedHours", report.summary?.loggedHours || 0],
@@ -330,6 +354,22 @@ export const convertStudentReportToPdfBuffer = async (report) => {
       "Assigned Company",
       report.student?.assigned_company_name || "Unassigned",
     );
+    addLine(
+      "Company Address",
+      report.student?.assigned_company_address || "N/A",
+    );
+    addLine(
+      "Company Contact",
+      report.student?.assigned_company_contact_name || "N/A",
+    );
+    addLine(
+      "Company Contact Email",
+      report.student?.assigned_company_contact_email || "N/A",
+    );
+    addLine(
+      "Company Contact Title",
+      report.student?.assigned_company_job_title || "N/A",
+    );
     addStudentProfileImage();
 
     doc.moveDown();
@@ -372,7 +412,10 @@ export const convertStudentReportToPdfBuffer = async (report) => {
         addLine("Time Out", entry.timeOut || "-");
         addLine("Break Minutes", entry.breakMinutes ?? 0);
         addLine("Total Hours", entry.totalHours ?? 0);
-        addLine("Status", entry.status || "-");
+        addLine(
+          "Status",
+          entry.status === "absent" ? "Absent" : entry.status || "-",
+        );
         addBlock("Daily Log", entry.dailyLog || "-");
       });
     }
@@ -419,3 +462,116 @@ export const convertStudentReportToPdfBuffer = async (report) => {
     doc.end();
   });
 };
+
+const buildSummaryReportPdfBuffer = ({ title, headerLines = [], report }) =>
+  new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50, size: "A4" });
+    const chunks = [];
+
+    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    const ensureSpace = (requiredHeight = 80) => {
+      const bottomY = doc.page.height - doc.page.margins.bottom;
+      if (doc.y + requiredHeight > bottomY) {
+        doc.addPage();
+      }
+    };
+
+    const addLine = (label, value) => {
+      ensureSpace(20);
+      doc.font("Helvetica-Bold").text(`${label}: `, { continued: true });
+      doc.font("Helvetica").text(String(value ?? "N/A"));
+    };
+
+    doc.fontSize(18).font("Helvetica-Bold").text(title);
+    doc.moveDown(0.6);
+    doc.fontSize(10).font("Helvetica");
+    addLine("Generated At", new Date(report.generatedAt).toLocaleString());
+
+    headerLines.forEach(([label, value]) => {
+      addLine(label, value);
+    });
+
+    doc.moveDown();
+    doc.fontSize(13).font("Helvetica-Bold").text("Summary");
+    doc.moveDown(0.3);
+    doc.fontSize(10).font("Helvetica");
+
+    const summary = report.summary || {};
+    addLine("Total Students", report.totalStudents ?? summary.totalStudents ?? 0);
+    addLine("Total Approved Hours", summary.totalApprovedHours ?? 0);
+    addLine("Average Progress", `${summary.averageProgress ?? 0}%`);
+    addLine("Students Completed", summary.studentsCompleted ?? 0);
+    addLine("Students Ongoing", summary.studentsOngoing ?? 0);
+
+    doc.moveDown();
+    doc.fontSize(13).font("Helvetica-Bold").text("Student Reports");
+    doc.moveDown(0.3);
+    doc.fontSize(10).font("Helvetica");
+
+    const studentReports = report.studentReports || [];
+    if (!studentReports.length) {
+      doc.text("No student reports available.");
+      doc.end();
+      return;
+    }
+
+    studentReports.forEach((item, index) => {
+      ensureSpace(120);
+      const student = item.student || {};
+      const name = student.name || "N/A";
+
+      doc.font("Helvetica-Bold").text(`${index + 1}. ${name}`);
+      doc.font("Helvetica");
+      addLine(
+        "Admission Number",
+        student.student_admission_number || "N/A",
+      );
+      addLine("Course", student.student_course || "N/A");
+      addLine(
+        "Assigned Company",
+        student.assigned_company_name || "Unassigned",
+      );
+
+      if (item.error) {
+        addLine("Error", item.error);
+      } else {
+        addLine("Approved Hours", item.summary?.approvedHours ?? 0);
+        addLine("Logbook Entries", item.metrics?.logs?.total ?? 0);
+        addLine(
+          "Progress",
+          `${item.summary?.progressPercent ?? 0}%`,
+        );
+        addLine(
+          "OJT Status",
+          item.summary?.isOjtComplete ? "Completed" : "Ongoing",
+        );
+      }
+
+      doc.moveDown(0.4);
+    });
+
+    doc.end();
+  });
+
+export const convertBatchReportToPdfBuffer = async (report) =>
+  buildSummaryReportPdfBuffer({
+    title: "Batch Report",
+    report,
+    headerLines: [
+      ["Batch Session", report.batch?.session_name || "N/A"],
+      ["Batch Year", report.batch?.year || "N/A"],
+    ],
+  });
+
+export const convertCourseReportToPdfBuffer = async (report) =>
+  buildSummaryReportPdfBuffer({
+    title: "Course Report",
+    report,
+    headerLines: [
+      ["Course", report.course?.name || "N/A"],
+      ["Course Count", report.course?.count ?? report.totalStudents ?? 0],
+    ],
+  });

@@ -305,7 +305,11 @@ function CompanyStudentReports() {
                           <td className="px-3 py-2">
                             {Number(item.totalHours || 0).toFixed(2)}
                           </td>
-                          <td className="px-3 py-2">{item.status || "-"}</td>
+                          <td className="px-3 py-2">
+                            {item.status === "absent"
+                              ? "Absent"
+                              : item.status || "-"}
+                          </td>
                           <td className="px-3 py-2 max-w-md">
                             <div className="line-clamp-3">
                               {item.dailyLog || "-"}

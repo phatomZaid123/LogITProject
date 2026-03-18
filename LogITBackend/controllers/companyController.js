@@ -4,6 +4,7 @@ import { TASK } from "../models/task.js";
 import { LOGBOOK } from "../models/logbook.js";
 import Evaluation from "../models/evaluation.js";
 import mongoose from "mongoose";
+import { markPastTimesheetAbsencesForStudent } from "../services/studentWorkflowService.js";
 import {
   createNotification,
   createNotificationsForRole,
@@ -464,6 +465,8 @@ const getStudentTimesheets = async (req, res) => {
         .json({ message: "This student is not assigned to your company" });
     }
 
+    await markPastTimesheetAbsencesForStudent(studentId);
+
     // Get all timesheets for this student
     const timesheets = await TIMESHEET.find({ student: studentId }).sort({
       date: -1,
@@ -499,6 +502,8 @@ const getAssignedStudentProfile = async (req, res) => {
         .status(403)
         .json({ message: "This student is not assigned to your company" });
     }
+
+    await markPastTimesheetAbsencesForStudent(studentId);
 
     const [logs, timesheets, evaluation] = await Promise.all([
       LOGBOOK.find({ created_by: studentId }).sort({ createdAt: -1 }),

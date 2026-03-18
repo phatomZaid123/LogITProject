@@ -1144,6 +1144,12 @@ export default function StudentProfile({
         border: "border-red-200",
         icon: <XCircle size={12} />,
       },
+      absent: {
+        bg: "bg-red-100",
+        text: "text-red-700",
+        border: "border-red-200",
+        icon: <XCircle size={12} />,
+      },
       // Backward-compatible aliases
       dean_declined: {
         bg: "bg-red-100",

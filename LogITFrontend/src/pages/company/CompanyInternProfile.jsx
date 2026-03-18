@@ -413,8 +413,14 @@ function CompanyInternProfile() {
                         {t.dailyLog?.trim() ? t.dailyLog : "-"}
                       </td>
                       <td className="px-3 py-2">
-                        <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">
-                          {t.status}
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs ${
+                            t.status === "absent"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {t.status === "absent" ? "Absent" : t.status}
                         </span>
                       </td>
                     </tr>

@@ -8,7 +8,11 @@ import { LOGBOOK } from "../models/logbook.js";
 import { TIMESHEET } from "../models/timesheet.js";
 import Evaluation from "../models/evaluation.js";
 import { createNotification } from "../utils/notificationUtils.js";
-import { generateDeanStudentReport } from "../services/studentReportService.js";
+import {
+  convertBatchReportToPdfBuffer,
+  convertCourseReportToPdfBuffer,
+  generateDeanStudentReport,
+} from "../services/studentReportService.js";
 
 const enrichCompaniesWithAssignments = async (companies = []) => {
   if (!companies.length) return companies;
@@ -1151,6 +1155,7 @@ const getCompaniesByStatus = async (req, res) => {
 const generateBatchReports = async (req, res) => {
   try {
     const deanId = req.user.id;
+    const format = String(req.query.format || "json").toLowerCase();
 
     // Find the active batch
     const activeBatch = await Batch.findOne({ isActive: true });
@@ -1169,7 +1174,7 @@ const generateBatchReports = async (req, res) => {
     );
 
     if (students.length === 0) {
-      return res.status(200).json({
+      const emptyReport = {
         success: true,
         batch: {
           id: activeBatch._id,
@@ -1186,7 +1191,19 @@ const generateBatchReports = async (req, res) => {
           studentsOngoing: 0,
         },
         generatedAt: new Date().toISOString(),
-      });
+      };
+
+      if (format === "pdf") {
+        const pdf = await convertBatchReportToPdfBuffer(emptyReport);
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="batch-report-${activeBatch.session_name}.pdf"`,
+        );
+        return res.status(200).send(pdf);
+      }
+
+      return res.status(200).json(emptyReport);
     }
 
     // Generate reports for all students
@@ -1231,7 +1248,7 @@ const generateBatchReports = async (req, res) => {
       students.length > 0 ? (totalProgress / students.length).toFixed(2) : 0;
     const studentsOngoing = students.length - studentsCompleted;
 
-    return res.status(200).json({
+    const reportPayload = {
       success: true,
       batch: {
         id: activeBatch._id,
@@ -1248,7 +1265,19 @@ const generateBatchReports = async (req, res) => {
         studentsOngoing,
       },
       generatedAt: new Date().toISOString(),
-    });
+    };
+
+    if (format === "pdf") {
+      const pdf = await convertBatchReportToPdfBuffer(reportPayload);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="batch-report-${activeBatch.session_name}.pdf"`,
+      );
+      return res.status(200).send(pdf);
+    }
+
+    return res.status(200).json(reportPayload);
   } catch (error) {
     console.error("Error generating batch reports:", error);
     res.status(500).json({
@@ -1263,6 +1292,7 @@ const generateCourseReports = async (req, res) => {
   try {
     const deanId = req.user.id;
     const { course } = req.query;
+    const format = String(req.query.format || "json").toLowerCase();
 
     // Validate course parameter
     if (!course) {
@@ -1290,7 +1320,7 @@ const generateCourseReports = async (req, res) => {
     );
 
     if (students.length === 0) {
-      return res.status(200).json({
+      const emptyReport = {
         success: true,
         course: {
           name: normalizedCourse,
@@ -1306,7 +1336,19 @@ const generateCourseReports = async (req, res) => {
           studentsOngoing: 0,
         },
         generatedAt: new Date().toISOString(),
-      });
+      };
+
+      if (format === "pdf") {
+        const pdf = await convertCourseReportToPdfBuffer(emptyReport);
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="course-report-${normalizedCourse}.pdf"`,
+        );
+        return res.status(200).send(pdf);
+      }
+
+      return res.status(200).json(emptyReport);
     }
 
     // Generate reports for all students in the course
@@ -1351,7 +1393,7 @@ const generateCourseReports = async (req, res) => {
       students.length > 0 ? (totalProgress / students.length).toFixed(2) : 0;
     const studentsOngoing = students.length - studentsCompleted;
 
-    return res.status(200).json({
+    const reportPayload = {
       success: true,
       course: {
         name: normalizedCourse,
@@ -1367,7 +1409,19 @@ const generateCourseReports = async (req, res) => {
         studentsOngoing,
       },
       generatedAt: new Date().toISOString(),
-    });
+    };
+
+    if (format === "pdf") {
+      const pdf = await convertCourseReportToPdfBuffer(reportPayload);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="course-report-${normalizedCourse}.pdf"`,
+      );
+      return res.status(200).send(pdf);
+    }
+
+    return res.status(200).json(reportPayload);
   } catch (error) {
     console.error("Error generating course reports:", error);
     res.status(500).json({

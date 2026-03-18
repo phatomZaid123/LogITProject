@@ -27,6 +27,7 @@ const timesheetSchema = new mongoose.Schema(
         "company_approved",
         "company_declined",
         "edited_by_company",
+        "absent",
       ],
       default: "pending",
     },

@@ -78,11 +78,7 @@ const submitWeeklyTimesheet = asyncHandler(async (req, res) => {
 
   res.status(200).json({
     success: true,
-    message: `${modifiedCount} entries submitted to company.${
-      autoTimedOutCount
-        ? ` ${autoTimedOutCount} entr${autoTimedOutCount === 1 ? "y was" : "ies were"} automatically timed out.`
-        : ""
-    }`,
+    message: `${modifiedCount} entries submitted to company.`,
     modifiedCount,
     autoTimedOutCount,
   });

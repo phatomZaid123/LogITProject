@@ -115,6 +115,11 @@ const CompanyTimesheetGrid = ({
         text: "text-purple-700",
         label: "Edited",
       },
+      absent: {
+        bg: "bg-red-100",
+        text: "text-red-700",
+        label: "Absent",
+      },
     };
 
     const config = statusConfig[status] || statusConfig.pending;

@@ -51,6 +51,9 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
     const isToday = date.getTime() === today.getTime();
     const isPast = date < today;
     const isFuture = date > today;
+    const isAbsent =
+      entry?.status === "absent" ||
+      (isPast && (!entry || !entry.timeIn || !entry.timeOut));
 
     return {
       dayName,
@@ -60,6 +63,7 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
       isPast,
       isFuture,
       dateStr: date.toISOString().split("T")[0],
+      isAbsent,
     };
   });
 
@@ -170,6 +174,11 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
         text: "text-blue-700",
         label: "Edited",
       },
+      absent: {
+        bg: "bg-red-100",
+        text: "text-red-700",
+        label: "Absent",
+      },
     };
     const config = statusConfig[status] || statusConfig.pending;
     return (
@@ -183,12 +192,13 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
 
   const canClockIn = (day) => {
     if (!studentCanEdit) return false;
-    if (day.isFuture) return false;
+    if (!day.isToday) return false;
     return !day.entry;
   };
 
   const canClockOut = (day) => {
     if (!studentCanEdit || !day.entry) return false;
+    if (!day.isToday) return false;
     if (day.entry.timeOut) return false;
     return ["pending", "company_declined"].includes(day.entry.status);
   };
@@ -245,6 +255,7 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
         <tbody>
           {weekDays.map((day) => {
             const isTimingOut = timingOutDay === day.dateStr;
+            const isAbsent = day.isAbsent;
 
             return (
               <tr
@@ -383,7 +394,11 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
 
                 {/* Status */}
                 <td className="px-2 py-2">
-                  {day.entry ? (
+                  {isAbsent ? (
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700 whitespace-nowrap">
+                      Absent
+                    </span>
+                  ) : day.entry ? (
                     getStatusBadge(day.entry.status)
                   ) : day.isFuture ? (
                     <span className="text-[10px] text-gray-400 italic">
@@ -398,7 +413,11 @@ const WeeklyTimesheetGrid = ({ week, entries, onUpdate, permissions = {} }) => {
 
                 {/* Actions */}
                 <td className="px-2 py-2">
-                  {isTimingOut ? (
+                  {isAbsent ? (
+                    <span className="text-red-600 text-xs font-semibold inline-flex items-center gap-1">
+                      <AlertCircle size={12} /> Absent
+                    </span>
+                  ) : isTimingOut ? (
                     <div className="flex gap-1 justify-center flex-wrap">
                       <button
                         onClick={() => handleTimeOutSave(day)}
