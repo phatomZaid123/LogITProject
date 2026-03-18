@@ -16,6 +16,98 @@ import {
 import toast from "react-hot-toast";
 import Button from "./ui/Button";
 
+const evaluationRatingSections = [
+  {
+    title: "I. Task Performance",
+    fields: [
+      { key: "qualityOfWork", label: "Quality of Work" },
+      { key: "quantityOfWork", label: "Quantity of Work" },
+      { key: "jobKnowledge", label: "Job Knowledge" },
+      { key: "dependability", label: "Dependability" },
+    ],
+  },
+  {
+    title: "II. Attendance and Punctuality",
+    fields: [
+      { key: "attendance", label: "Attendance" },
+      { key: "punctuality", label: "Punctuality" },
+    ],
+  },
+  {
+    title: "III. Work Attitude/Habits",
+    fields: [
+      { key: "trustworthinessReliability", label: "Trustworthiness and Reliability" },
+      { key: "initiativeCooperation", label: "Initiative and Cooperation" },
+      { key: "willingnessToLearn", label: "Willingness to Learn" },
+    ],
+  },
+  {
+    title: "IV. Personality and Appearance",
+    fields: [
+      { key: "grooming", label: "Grooming" },
+      { key: "interpersonalSkills", label: "Interpersonal Skills" },
+      { key: "courtesy", label: "Courtesy" },
+    ],
+  },
+];
+
+const evaluationRemarkOptions = [
+  {
+    value: "absorb_student",
+    label: "The company will absorb the student-trainee",
+  },
+  {
+    value: "consider_future_hiring",
+    label: "The company will consider the student-trainee for future hiring",
+  },
+  {
+    value: "highly_recommended",
+    label: "Highly recommended for placement",
+  },
+  {
+    value: "moderately_recommended",
+    label: "Moderately recommended for placement",
+  },
+  {
+    value: "not_recommended",
+    label: "Not recommended for placement",
+  },
+  {
+    value: "needs_orientation",
+    label: "Needs proper orientation and acquire more skills",
+  },
+];
+
+const evaluationRemarkLabels = evaluationRemarkOptions.reduce((acc, option) => {
+  acc[option.value] = option.label;
+  return acc;
+}, {});
+
+const legacyRecommendationMap = {
+  recommend: "highly_recommended",
+  recommend_with_reservation: "moderately_recommended",
+  do_not_recommend: "not_recommended",
+};
+
+const isImageDocument = (doc) => {
+  const fileType = String(doc?.fileType || "");
+  if (fileType.startsWith("image/")) return true;
+  const name = String(doc?.originalName || doc?.fileUrl || "");
+  return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name);
+};
+
+const isCertificationDocument = (doc) =>
+  doc?.category === "certification" || doc?.uploadedBy === "company";
+
+const normalizeEvaluationRemarks = (evaluation) => {
+  if (!evaluation) return [];
+  if (Array.isArray(evaluation.remarks) && evaluation.remarks.length) {
+    return evaluation.remarks;
+  }
+  const mapped = legacyRecommendationMap[evaluation.recommendation];
+  return mapped ? [mapped] : [];
+};
+
 export default function StudentProfile({
   selfView = false,
   profilePreview = null,
@@ -248,7 +340,16 @@ export default function StudentProfile({
   const totalTimesheets = student?.timesheets?.length || 0;
   const totalApprovedHours = ojtHoursCompleted;
   const evaluation = student?.evaluation || null;
+  const evaluationRemarks = normalizeEvaluationRemarks(evaluation);
   const documents = student?.documents || [];
+  const isCompleted = Boolean(
+    student?.completed_program || student?.status === "completed",
+  );
+  const showCompletionOnlySections = !selfView || isCompleted;
+  const visibleDocuments =
+    selfView && !isCompleted
+      ? documents.filter((doc) => !isCertificationDocument(doc))
+      : documents;
   const baseFileUrl = api?.defaults?.baseURL?.replace(/\/api\/?$/, "") || "";
   const resolveFileUrl = (value) =>
     value ? (value.startsWith("http") ? value : `${baseFileUrl}${value}`) : "#";
@@ -416,135 +517,203 @@ export default function StudentProfile({
             )}
           </div>
 
-          {documents.length === 0 ? (
+          {visibleDocuments.length === 0 ? (
             <div className="rounded-lg border border-dashed border-gray-200 p-6 text-sm text-gray-500">
               No documents uploaded yet.
             </div>
           ) : (
-            <div className="space-y-3">
-              {documents.map((doc, index) => (
-                <div
-                  key={`${doc.fileUrl}-${index}`}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-4 py-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-lg bg-purple-100 p-2 text-purple-600">
-                      <FileText size={18} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800">
-                        {doc.originalName || "Document"}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {doc.uploadedAt
-                          ? new Date(doc.uploadedAt).toLocaleDateString()
-                          : "Upload date unavailable"}
-                      </p>
-                    </div>
-                  </div>
-                  <a
-                    href={resolveFileUrl(doc.fileUrl)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sm font-semibold text-purple-600 hover:text-purple-800"
-                  >
-                    View
-                  </a>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="px-8 mb-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <h2 className="text-lg font-bold text-gray-800">
-              Company Evaluation
-            </h2>
-            {evaluation ? (
-              <span className="text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-700 font-semibold">
-                Submitted
-              </span>
-            ) : (
-              <span className="text-xs px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 font-semibold">
-                Not submitted
-              </span>
-            )}
-          </div>
-
-          {!evaluation ? (
-            <p className="text-sm text-gray-500">
-              No company evaluation has been submitted yet.
-            </p>
-          ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                <EvaluationItem
-                  label="Attendance"
-                  value={`${Number(evaluation.ratings?.attendance || 0).toFixed(1)} / 5`}
-                />
-                <EvaluationItem
-                  label="Cooperation"
-                  value={`${Number(evaluation.ratings?.cooperation || 0).toFixed(1)} / 5`}
-                />
-                <EvaluationItem
-                  label="Communication"
-                  value={`${Number(evaluation.ratings?.communication || 0).toFixed(1)} / 5`}
-                />
-                <EvaluationItem
-                  label="Technical Skills"
-                  value={`${Number(evaluation.ratings?.technicalSkills || 0).toFixed(1)} / 5`}
-                />
-                <EvaluationItem
-                  label="Professionalism"
-                  value={`${Number(evaluation.ratings?.professionalism || 0).toFixed(1)} / 5`}
-                />
-                <EvaluationItem
-                  label="Overall"
-                  value={`${Number(evaluation.overallScore || 0).toFixed(2)} / 5`}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <TextBlock label="Strengths" value={evaluation.strengths} />
-                <TextBlock
-                  label="Areas for Improvement"
-                  value={evaluation.areasForImprovement}
-                />
-                <TextBlock
-                  label="Additional Comments"
-                  value={evaluation.additionalComments}
-                />
-                <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
-                  <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">
-                    Recommendation
-                  </p>
-                  <p className="text-sm font-semibold text-gray-800 mt-1">
-                    {(evaluation.recommendation || "-").replaceAll("_", " ")}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-3">
-                    By {evaluation.company?.name || "Company"} on{" "}
-                    {evaluation.submittedAt
-                      ? new Date(evaluation.submittedAt).toLocaleDateString()
-                      : "-"}
-                  </p>
+              {selfView ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {visibleDocuments.map((doc, index) => {
+                    const isImage = isImageDocument(doc);
+                    const fileUrl = resolveFileUrl(doc.fileUrl);
+                    return (
+                      <div
+                        key={`${doc.fileUrl}-${index}`}
+                        className="rounded-lg border border-gray-100 bg-white shadow-sm overflow-hidden"
+                      >
+                        <div className="h-36 bg-gray-100 flex items-center justify-center">
+                          {isImage ? (
+                            <img
+                              src={fileUrl}
+                              alt={doc.originalName || "Document preview"}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center gap-2 text-gray-400">
+                              <FileText size={28} />
+                              <span className="text-xs">No preview</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-3">
+                          <p className="text-sm font-semibold text-gray-800 truncate">
+                            {doc.originalName || "Document"}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {doc.uploadedAt
+                              ? new Date(doc.uploadedAt).toLocaleDateString()
+                              : "Upload date unavailable"}
+                          </p>
+                          <a
+                            href={fileUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex mt-3 text-sm font-semibold text-purple-600 hover:text-purple-800"
+                          >
+                            View
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-3">
+                  {visibleDocuments.map((doc, index) => (
+                    <div
+                      key={`${doc.fileUrl}-${index}`}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-lg bg-purple-100 p-2 text-purple-600">
+                          <FileText size={18} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">
+                            {doc.originalName || "Document"}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {doc.uploadedAt
+                              ? new Date(doc.uploadedAt).toLocaleDateString()
+                              : "Upload date unavailable"}
+                          </p>
+                        </div>
+                      </div>
+                      <a
+                        href={resolveFileUrl(doc.fileUrl)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm font-semibold text-purple-600 hover:text-purple-800"
+                      >
+                        View
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>
       </div>
 
-      {/* GENERATED REPORT SECTION */}
-      {report && (
+      {showCompletionOnlySections && (
         <div className="px-8 mb-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between gap-3 mb-4">
               <h2 className="text-lg font-bold text-gray-800">
-                Generated Report
+                Company Evaluation
               </h2>
+              {evaluation ? (
+                <span className="text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-700 font-semibold">
+                  Submitted
+                </span>
+              ) : (
+                <span className="text-xs px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 font-semibold">
+                  Not submitted
+                </span>
+              )}
+            </div>
+
+            {!evaluation ? (
+              <p className="text-sm text-gray-500">
+                No company evaluation has been submitted yet.
+              </p>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                  <EvaluationItem
+                    label="Overall Score"
+                    value={`${Number(evaluation.overallScore || 0).toFixed(2)} / 5`}
+                  />
+                </div>
+
+                {evaluationRatingSections.map((section) => (
+                  <div key={section.title} className="mb-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-2">
+                      {section.title}
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {section.fields.map((field) => (
+                        <EvaluationItem
+                          key={field.key}
+                          label={field.label}
+                          value={`${Number(evaluation.ratings?.[field.key] || 0).toFixed(1)} / 5`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <TextBlock
+                    label="Strong Personality & Work Performance"
+                    value={evaluation.strengths}
+                  />
+                  <TextBlock
+                    label="Areas Needing Improvement"
+                    value={evaluation.areasForImprovement}
+                  />
+                  {evaluation.additionalComments?.trim() && (
+                    <TextBlock
+                      label="Additional Comments"
+                      value={evaluation.additionalComments}
+                    />
+                  )}
+                  <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">
+                      Remarks
+                    </p>
+                    {evaluationRemarks.length ? (
+                      <ul className="text-sm text-gray-800 mt-1 space-y-1">
+                        {evaluationRemarks.map((remark) => (
+                          <li key={remark}>
+                            {evaluationRemarkLabels[remark] ||
+                              remark.replaceAll("_", " ")}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-gray-800 mt-1">-</p>
+                    )}
+                    <p className="text-xs text-gray-500 mt-3">
+                      By {evaluation.company?.name || "Company"} on{" "}
+                      {evaluation.submittedAt
+                        ? new Date(evaluation.submittedAt).toLocaleDateString()
+                        : "-"}
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* GENERATED REPORT SECTION */}
+      {report && (
+        <div className="px-8 mb-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between gap-3 mb-6">
+              <div>
+                <h2 className="text-lg font-bold text-gray-800">
+                  Generated Report
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Generated: {new Date(report.generatedAt).toLocaleString()}
+                </p>
+              </div>
               <div className="flex gap-2">
                 <button
                   onClick={downloadCsv}
@@ -562,12 +731,135 @@ export default function StudentProfile({
                 </button>
               </div>
             </div>
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 max-h-96 overflow-y-auto">
-              <pre className="text-sm text-gray-800 whitespace-pre-wrap warp-break-words">
-                {typeof report === "string"
-                  ? report
-                  : JSON.stringify(report, null, 2)}
-              </pre>
+
+            {/* Report Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-xs uppercase tracking-wide text-blue-600 font-semibold">
+                  Approved Hours
+                </p>
+                <p className="text-2xl font-bold text-blue-900 mt-2">
+                  {report.summary?.approvedHours || report.approvedHours || 0}h
+                </p>
+              </div>
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <p className="text-xs uppercase tracking-wide text-purple-600 font-semibold">
+                  Progress
+                </p>
+                <p className="text-2xl font-bold text-purple-900 mt-2">
+                  {report.summary?.progressPercent ||
+                    report.progressPercent ||
+                    0}
+                  %
+                </p>
+              </div>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p className="text-xs uppercase tracking-wide text-green-600 font-semibold">
+                  Status
+                </p>
+                <p className="text-lg font-bold text-green-900 mt-2">
+                  {report.summary?.isOjtComplete ? "Completed" : "Ongoing"}
+                </p>
+              </div>
+            </div>
+
+            {/* Report Details Table */}
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <tbody className="divide-y divide-gray-200">
+                  {report.logs && report.logs.length > 0 && (
+                    <>
+                      <tr className="bg-gray-50">
+                        <td
+                          colSpan="2"
+                          className="px-4 py-3 font-bold text-gray-800"
+                        >
+                          Weekly Logs Summary
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 text-gray-600 font-medium">
+                          Total Logs
+                        </td>
+                        <td className="px-4 py-3 text-gray-900 font-semibold">
+                          {report.logs.length}
+                        </td>
+                      </tr>
+                    </>
+                  )}
+                  {report.metrics && (
+                    <>
+                      <tr className="bg-gray-50">
+                        <td
+                          colSpan="2"
+                          className="px-4 py-3 font-bold text-gray-800"
+                        >
+                          Metrics
+                        </td>
+                      </tr>
+                      {report.metrics.logs && (
+                        <tr>
+                          <td className="px-4 py-3 text-gray-600 font-medium">
+                            Logs Submitted
+                          </td>
+                          <td className="px-4 py-3 text-gray-900 font-semibold">
+                            {report.metrics.logs.total || 0}
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  )}
+                  {report.summary && (
+                    <>
+                      <tr className="bg-gray-50">
+                        <td
+                          colSpan="2"
+                          className="px-4 py-3 font-bold text-gray-800"
+                        >
+                          OJT Summary
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 text-gray-600 font-medium">
+                          Required Hours
+                        </td>
+                        <td className="px-4 py-3 text-gray-900 font-semibold">
+                          {report.summary.requiredHours || 500}h
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 text-gray-600 font-medium">
+                          Approved Hours
+                        </td>
+                        <td className="px-4 py-3 text-gray-900 font-semibold">
+                          {report.summary.approvedHours || 0}h
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 text-gray-600 font-medium">
+                          Remaining Hours
+                        </td>
+                        <td className="px-4 py-3 text-gray-900 font-semibold">
+                          {Math.max(
+                            0,
+                            (report.summary.requiredHours || 500) -
+                              (report.summary.approvedHours || 0),
+                          )}
+                          h
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 text-gray-600 font-medium">
+                          Progress Percentage
+                        </td>
+                        <td className="px-4 py-3 text-gray-900 font-semibold">
+                          {report.summary.progressPercent || 0}%
+                        </td>
+                      </tr>
+                    </>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

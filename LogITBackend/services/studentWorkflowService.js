@@ -340,6 +340,8 @@ export const uploadStudentDocumentsForStudent = async ({
     fileUrl: `/uploads/${file.filename}`,
     fileType: file.mimetype,
     originalName: file.originalname,
+    uploadedBy: "student",
+    category: "requirement",
     uploadedAt: new Date(),
   }));
 

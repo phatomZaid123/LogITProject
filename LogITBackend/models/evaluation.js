@@ -22,11 +22,18 @@ const evaluationSchema = new mongoose.Schema(
       index: true,
     },
     ratings: {
+      qualityOfWork: ratingField,
+      quantityOfWork: ratingField,
+      jobKnowledge: ratingField,
+      dependability: ratingField,
       attendance: ratingField,
-      cooperation: ratingField,
-      communication: ratingField,
-      technicalSkills: ratingField,
-      professionalism: ratingField,
+      punctuality: ratingField,
+      trustworthinessReliability: ratingField,
+      initiativeCooperation: ratingField,
+      willingnessToLearn: ratingField,
+      grooming: ratingField,
+      interpersonalSkills: ratingField,
+      courtesy: ratingField,
     },
     overallScore: {
       type: Number,
@@ -52,10 +59,21 @@ const evaluationSchema = new mongoose.Schema(
       default: "",
       maxlength: 2000,
     },
-    recommendation: {
-      type: String,
-      enum: ["recommend", "recommend_with_reservation", "do_not_recommend"],
-      required: true,
+    remarks: {
+      type: [String],
+      enum: [
+        "absorb_student",
+        "consider_future_hiring",
+        "highly_recommended",
+        "moderately_recommended",
+        "not_recommended",
+        "needs_orientation",
+      ],
+      default: [],
+      validate: {
+        validator: (values) => Array.isArray(values) && values.length > 0,
+        message: "At least one remark is required",
+      },
     },
     approvedHours: {
       type: Number,

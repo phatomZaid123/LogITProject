@@ -47,6 +47,16 @@ const studentSchema = new mongoose.Schema({
       fileUrl: String,
       fileType: String,
       originalName: String,
+      uploadedBy: {
+        type: String,
+        enum: ["student", "company"],
+        default: "student",
+      },
+      category: {
+        type: String,
+        enum: ["requirement", "certification"],
+        default: "requirement",
+      },
       uploadedAt: {
         type: Date,
         default: Date.now,

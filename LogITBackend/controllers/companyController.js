@@ -575,21 +575,31 @@ const submitStudentEvaluation = async (req, res) => {
       strengths,
       areasForImprovement,
       additionalComments,
-      recommendation,
+      remarks,
     } = req.body || {};
 
-    const allowedRecommendations = [
-      "recommend",
-      "recommend_with_reservation",
-      "do_not_recommend",
+    const allowedRemarks = [
+      "absorb_student",
+      "consider_future_hiring",
+      "highly_recommended",
+      "moderately_recommended",
+      "not_recommended",
+      "needs_orientation",
     ];
 
     const requiredRatingFields = [
+      "qualityOfWork",
+      "quantityOfWork",
+      "jobKnowledge",
+      "dependability",
       "attendance",
-      "cooperation",
-      "communication",
-      "technicalSkills",
-      "professionalism",
+      "punctuality",
+      "trustworthinessReliability",
+      "initiativeCooperation",
+      "willingnessToLearn",
+      "grooming",
+      "interpersonalSkills",
+      "courtesy",
     ];
 
     if (!ratings || typeof ratings !== "object") {
@@ -608,8 +618,27 @@ const submitStudentEvaluation = async (req, res) => {
       normalizedRatings[field] = value;
     }
 
-    if (!allowedRecommendations.includes(recommendation)) {
-      return res.status(400).json({ message: "Invalid recommendation value" });
+    let normalizedRemarks = [];
+    if (Array.isArray(remarks)) {
+      normalizedRemarks = remarks
+        .map((remark) => String(remark || "").trim())
+        .filter(Boolean);
+    } else if (typeof remarks === "string" && remarks.trim()) {
+      normalizedRemarks = [remarks.trim()];
+    }
+    normalizedRemarks = [...new Set(normalizedRemarks)];
+
+    if (!normalizedRemarks.length) {
+      return res.status(400).json({ message: "Remarks are required" });
+    }
+
+    const invalidRemark = normalizedRemarks.find(
+      (remark) => !allowedRemarks.includes(remark),
+    );
+    if (invalidRemark) {
+      return res
+        .status(400)
+        .json({ message: `Invalid remark value: ${invalidRemark}` });
     }
 
     const total = Object.values(normalizedRatings).reduce(
@@ -631,7 +660,7 @@ const submitStudentEvaluation = async (req, res) => {
         strengths: strengths || "",
         areasForImprovement: areasForImprovement || "",
         additionalComments: additionalComments || "",
-        recommendation,
+        remarks: normalizedRemarks,
         approvedHours,
         requiredHours,
         eligibleByHours: approvedHours >= requiredHours,
@@ -752,6 +781,76 @@ const createTask = async (req, res) => {
   }
 };
 
+const uploadStudentCertification = async (req, res) => {
+  try {
+    const companyId = req.user?._id;
+    const { studentId } = req.params;
+
+    if (!companyId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ message: "Invalid student ID format" });
+    }
+
+    const student = await Student.findById(studentId).select(
+      "assigned_company documents name",
+    );
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    if (student.assigned_company?.toString() !== companyId.toString()) {
+      return res
+        .status(403)
+        .json({ message: "Student is not assigned to your company" });
+    }
+
+    if (!req.files?.length) {
+      return res.status(400).json({ message: "No documents uploaded" });
+    }
+
+    const documents = req.files.map((file) => ({
+      fileUrl: `/uploads/${file.filename}`,
+      fileType: file.mimetype,
+      originalName: file.originalname,
+      uploadedBy: "company",
+      category: "certification",
+      uploadedAt: new Date(),
+    }));
+
+    student.documents = [...(student.documents || []), ...documents];
+    await student.save();
+
+    await createNotification({
+      recipient: studentId,
+      recipientRole: "student",
+      type: "student_document_uploaded",
+      title: "Certification uploaded",
+      message: "Your company uploaded your certification.",
+      link: "/student/dashboard/profile",
+      data: {
+        studentId,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Certification uploaded successfully",
+      documents: student.documents,
+    });
+  } catch (error) {
+    console.error("Upload Student Certification Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to upload certification",
+      error: error.message,
+    });
+  }
+};
+
 const getCompanyTasks = async (req, res) => {
   try {
     const companyId = req.user?._id;
@@ -828,6 +927,7 @@ export {
   companyReviewLogbook,
   getAssignedStudentProfile,
   submitStudentEvaluation,
+  uploadStudentCertification,
   createTask,
   getCompanyTasks,
   updateTaskStatus,

@@ -105,9 +105,14 @@ const buildStudentSummary = ({
     `Logs Submitted: ${logsCount}`,
     `Status: ${performance}`,
     evaluation
-      ? `Evaluation: ${Number(evaluation.overallScore || 0).toFixed(2)}/5 (${String(
-          evaluation.recommendation || "-",
-        ).replaceAll("_", " ")})`
+      ? `Evaluation: ${Number(evaluation.overallScore || 0).toFixed(2)}/5 (${Array.isArray(
+          evaluation.remarks,
+        )
+          ? evaluation.remarks
+              .map((remark) => String(remark || "").replaceAll("_", " "))
+              .filter(Boolean)
+              .join(", ") || "-"
+          : "-"})`
       : "Evaluation: Not submitted",
   ].join("\n");
 };
@@ -174,9 +179,7 @@ const resolveStudentSummary = async (query) => {
   const [approvedHours, logsCount, evaluation] = await Promise.all([
     getApprovedHours(student._id),
     LOGBOOK.countDocuments({ created_by: student._id }),
-    Evaluation.findOne({ student: student._id }).select(
-      "overallScore recommendation",
-    ),
+    Evaluation.findOne({ student: student._id }).select("overallScore remarks"),
   ]);
 
   return buildStudentSummary({

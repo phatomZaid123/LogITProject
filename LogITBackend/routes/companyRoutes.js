@@ -1,5 +1,6 @@
 import express from "express";
 import { protect, authorize } from "../middleware/authMiddleware.js";
+import { upload } from "../middleware/uploads.js";
 import {
   searchStudents,
   assignStudentToCompany,
@@ -12,6 +13,7 @@ import {
   getStudentLogsForCompany,
   companyReviewLogbook,
   submitStudentEvaluation,
+  uploadStudentCertification,
   createTask,
   getCompanyTasks,
   updateTaskStatus,
@@ -61,6 +63,13 @@ router.put(
   protect,
   authorize("company"),
   submitStudentEvaluation,
+);
+router.post(
+  "/student/:studentId/certification",
+  protect,
+  authorize("company"),
+  upload.array("documents", 5),
+  uploadStudentCertification,
 );
 router.get(
   "/reports/student/:studentId",
