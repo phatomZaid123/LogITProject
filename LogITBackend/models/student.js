@@ -24,6 +24,11 @@ const studentSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  status: {
+    type: String,
+    enum: ["enrolled", "ongoing", "completed"],
+    default: "enrolled",
+  },
   student_batch: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Batch",

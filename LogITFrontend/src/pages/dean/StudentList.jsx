@@ -10,7 +10,7 @@ import Button from "../../components/ui/Button";
 import { ModalForm } from "../../components/ui/Modal";
 import QRCodeModal from "../../components/QRCodeModal";
 import StudentListComponent from "../../components/StudentList";
-import { Search, Filter, Plus, GraduationCap, QrCode } from "lucide-react";
+import { Search, Plus, GraduationCap, QrCode, SearchIcon } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
 
@@ -19,6 +19,7 @@ function StudentList() {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrData, setQrData] = useState(null);
   const [selectedCourse, setSelectedCourse] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("");
   const [modalType, setModalType] = useState("");
   const [students, setStudents] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -26,20 +27,32 @@ function StudentList() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const courseOptions = ["BSCS", "BSIT", "BSSE", "BSDS"];
+  const statusOptions = ["enrolled", "ongoing", "completed"];
 
   const { api } = useAuth();
 
-  // Filter students based on search query only (batch filtering is done via API)
+  // Filter students based on search query and status (course filtering is done via API)
   const filteredStudents = students.filter((student) => {
     // Filter by search query
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      student.name?.toLowerCase().includes(query) ||
-      student.student_admission_number?.toString().toLowerCase().includes(query) ||
-      student.student_course?.toLowerCase().includes(query) ||
-      student.assigned_company?.toLowerCase().includes(query)
-    );
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchesSearch =
+        student.name?.toLowerCase().includes(query) ||
+        student.student_admission_number
+          ?.toString()
+          .toLowerCase()
+          .includes(query) ||
+        student.student_course?.toLowerCase().includes(query) ||
+        student.assigned_company?.toLowerCase().includes(query);
+      if (!matchesSearch) return false;
+    }
+
+    // Filter by status
+    if (selectedStatus && student.status !== selectedStatus) {
+      return false;
+    }
+
+    return true;
   });
 
   // Fetch students based on selected batch
@@ -150,7 +163,8 @@ function StudentList() {
             />
           </div>
           <Button variant="outline" className="flex items-center gap-2">
-            <Filter size={18} /> Filter
+            <SearchIcon size={18} />
+            Search
           </Button>
         </div>
 
@@ -200,7 +214,7 @@ function StudentList() {
             <div>
               <CardTitle className="text-2xl mb-1">Students List {}</CardTitle>
               <CardDescription className="text-gray-600">
-                {searchQuery || selectedCourse ? (
+                {searchQuery || selectedStatus || selectedCourse ? (
                   <>
                     Showing{" "}
                     <span className="font-semibold text-gray-900">
@@ -223,28 +237,51 @@ function StudentList() {
                 )}
               </CardDescription>
             </div>
-            <div className="md:w-64">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Filter by Course
-              </label>
-              <select
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white shadow-sm"
-                name="course"
-                id="course"
-                onChange={(e) => {
-                  const newCourse = e.target.value;
-                  setSelectedCourse(newCourse);
-                  fetchStudents(newCourse);
-                }}
-                value={selectedCourse}
-              >
-                <option value="">All Courses</option>
-                {courseOptions.map((course) => (
-                  <option key={course} value={course}>
-                    {course}
-                  </option>
-                ))}
-              </select>
+            <div className="flex flex-col md:flex-row gap-3">
+              <div className="md:w-64">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter by Course
+                </label>
+                <select
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white shadow-sm"
+                  name="course"
+                  id="course"
+                  onChange={(e) => {
+                    const newCourse = e.target.value;
+                    setSelectedCourse(newCourse);
+                    fetchStudents(newCourse);
+                  }}
+                  value={selectedCourse}
+                >
+                  <option value="">All Courses</option>
+                  {courseOptions.map((course) => (
+                    <option key={course} value={course}>
+                      {course}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="md:w-64">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter by Status
+                </label>
+                <select
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white shadow-sm"
+                  name="status"
+                  id="status"
+                  onChange={(e) => {
+                    setSelectedStatus(e.target.value);
+                  }}
+                  value={selectedStatus}
+                >
+                  <option value="">All Statuses</option>
+                  {statusOptions.map((status) => (
+                    <option key={status} value={status}>
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </CardHeader>

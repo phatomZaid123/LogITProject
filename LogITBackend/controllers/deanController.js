@@ -94,7 +94,7 @@ const attachOjtStatus = (students = []) => {
 
   return students.map((student) => ({
     ...student,
-    ojt_status: student.completed_program ? "completed" : "ongoing",
+    ojt_status: student.status || "enrolled",
   }));
 };
 
@@ -705,10 +705,10 @@ const markStudentCompleted = async (req, res) => {
 
     const student = await Student.findByIdAndUpdate(
       id,
-      { completed_program: true },
+      { completed_program: true, status: "completed" },
       { new: true, runValidators: true },
     ).select(
-      "name email student_admission_number student_course completed_program assigned_company",
+      "name email student_admission_number student_course completed_program assigned_company status",
     );
 
     if (!student) {

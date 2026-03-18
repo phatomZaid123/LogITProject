@@ -117,7 +117,7 @@ const searchStudents = async (req, res) => {
         { assigned_company: null },
       ],
     }).limit(10); // Limit results for better performance
-  
+
     res.status(200).json(students);
   } catch (err) {
     res.status(500).json({ error: "Search failed, Student is not registered" });
@@ -145,7 +145,7 @@ const assignStudentToCompany = async (req, res) => {
   try {
     const updateStudent = await Student.findByIdAndUpdate(
       studentId,
-      { assigned_company: user._id },
+      { assigned_company: user._id, status: "ongoing" },
       { new: true },
     ).select("-password -createdAt -updatedAt -__v -role");
 
